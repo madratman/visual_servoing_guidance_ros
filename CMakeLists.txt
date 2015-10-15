@@ -104,6 +104,7 @@ include_directories(
 
 #SET(RUNPATH_LINK_FLAG "-Wl,-rpath,./")
 #SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${RUNPATH_LINK_FLAG}")
+set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
@@ -185,6 +186,8 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 add_executable(GuidanceNode ${PROJECT_SOURCE_DIR}/src/GuidanceNode.cpp ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp)
 add_executable(GuidanceNodeTest ${PROJECT_SOURCE_DIR}/src/GuidanceNodeTest.cpp)
+add_executable(PID_node ${PROJECT_SOURCE_DIR}/src/PID_node.cpp)
 
 target_link_libraries(GuidanceNode DJI_guidance usb-1.0 ${catkin_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(GuidanceNodeTest ${catkin_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(PID_node ${catkin_LIBRARIES} ${OpenCV_LIBS})
