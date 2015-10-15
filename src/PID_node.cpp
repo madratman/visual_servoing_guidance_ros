@@ -100,6 +100,22 @@ void left_image_callback(const sensor_msgs::ImageConstPtr& left_img)
     vector<int> y_2_points;
     vector<float> slopes_line;
 
+    char thresh_label_hough_standard[50];
+    char thresh_label_hough_prob_1[50];
+    char thresh_label_hough_prob_2[50];
+    char thresh_label_hough_prob_3[50];
+    sprintf(thresh_label_hough_standard, "min_no_of_intersections");  
+    sprintf(thresh_label_hough_prob_1, "min_no_of_intersections");  
+    sprintf(thresh_label_hough_prob_2, "min_no_of_points_in_line");  
+    sprintf(thresh_label_hough_prob_3, "max_gap_between_points_in_line");  
+
+    // namedWindow(hough_standard_window, 1);
+    // createTrackbar(thresh_label_hough_standard, hough_standard_window, &hough_stand_trackbar, upper_min_no_of_intersections_trackbar, Standard_Hough);
+    
+    namedWindow(hough_prob_window, 1);
+    createTrackbar(thresh_label_hough_prob_1, hough_prob_window, &hough_prob_min_no_of_intersections_trackbar, upper_min_no_of_intersections_trackbar);
+    createTrackbar(thresh_label_hough_prob_2, hough_prob_window, &hough_prob_min_no_of_points_trackbar, upper_hough_prob_min_no_of_points_trackbar);
+    createTrackbar(thresh_label_hough_prob_3, hough_prob_window, &hough_prob_max_gap_bw_points_trackbar, upper_hough_prob_max_gap_bw_points_trackbar);
     Canny(image_original, image_after_canny, 50, 200, 3);
     cvtColor(image_after_canny,hough_prob_result, COLOR_GRAY2BGR );
     HoughLinesP(image_after_canny, lines, 1, CV_PI/180, lower_hough_prob_min_no_of_intersections_trackbar + hough_prob_min_no_of_intersections_trackbar, lower_hough_prob_min_no_of_points_trackbar + hough_prob_min_no_of_points_trackbar, lower_hough_prob_max_gap_bw_points_trackbar + hough_prob_max_gap_bw_points_trackbar);
@@ -174,6 +190,7 @@ void left_image_callback(const sensor_msgs::ImageConstPtr& left_img)
         for (auto i = index.begin(); i != index.end(); ++i)
             std::cout << *i << ' ';*/
     }
+        imshow(hough_prob_window, hough_prob_result);
 
     cv::waitKey(1);
 }
