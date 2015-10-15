@@ -25,6 +25,7 @@
 #include <geometry_msgs/TransformStamped.h> //IMU
 #include <geometry_msgs/Vector3Stamped.h> //velocity
 #include <sensor_msgs/LaserScan.h> //obstacle distance && ultrasonic
+#include <PID_Controller.h>
 
 ros::Subscriber left_image_sub;
 ros::Subscriber right_image_sub;
@@ -132,7 +133,6 @@ void left_image_callback(const sensor_msgs::ImageConstPtr& left_img)
 
             // the euclidean distance between the end points of the current line segment 
             // lengths.push_back(norm(Point(l[0], l[1]) - Point(l[2], l[3]))); 
-            // polar coordinate \theta : the "angle" of the line in degree, or the yaw of the quad, if it's level
 
             cout << "no of detected lines is "<< lines.size()<<endl;
             float den = l[2] - l[0];
@@ -150,20 +150,21 @@ void left_image_callback(const sensor_msgs::ImageConstPtr& left_img)
      
             angles.push_back(atan2( (l[3]-l[1]), (l[2]-l[0]) ) * 180/M_PI );
             // slopes_line.push_back( (l[3]-l[1]) / (l[2]-l[0]) );
-            // float c_line = (-slope_line * l[0]) + l[1];
+            float slope_line = (l[3]-l[1]) / (l[2]-l[0]);
+            float c_line = (-slope_line * l[0]) + l[1];
             // polar coordinates "r" : distance  of line y=mx+c from origin is |c|/rt(1+m^2)
-            // distance_from_origin.push_back( abs(c_line) / sqrt(1 + pow(slope_line,2)) );
+            distance_from_origin.push_back( abs(c_line) / sqrt(1 + pow(slope_line,2)) );
 
             // Now to keep the quad level, we first will change only the yaw. 
             // After aligning the line vertically on the image, we'll make it translate in the "X" direction, so as to bring it in the center.
             // Finally, we'll fly upwards and let the gripper do its thing automatically.
         }   
 
-        // this is O(nlogn + n). Can't think of a better way. Anyway, it doesn't really matter
+        // Following is O(nlogn + n). Can't think of a better way. Anyway, it doesn't really matter
         // It removes the lines that have similar angles 
-            
+        
         std::sort(angles.begin(), angles.end());
-        auto last = unique(angles.begin(), angles.end(), [](double l, double r) { return std::abs(l - r) < 5; });  // lambda  func
+        auto last = unique(angles.begin(), angles.end(), [](double l, double r) { return std::abs(l - r) < 5; });  // lambda func
         // equivalent if falling within 5 degrees on either side. 
 
         auto first = angles.begin();
@@ -181,7 +182,8 @@ void left_image_callback(const sensor_msgs::ImageConstPtr& left_img)
         // In some cases, line might be fragmented, so we could have checks for P2 of line 1 lying in vicinity of P1 of line 2
         // If they are within a predefined "circle of closeness", we can merge the fragments to form a longer line. 
 
-    /*    vector<size_t> index(angles.size());
+        /*
+        vector<size_t> index(angles.size());
         for (size_t i = 0; i != index.size(); ++i) index[i] = i;
 
         // sort indexes based on comparing values in angles
