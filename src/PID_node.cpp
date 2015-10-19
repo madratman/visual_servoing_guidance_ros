@@ -25,7 +25,7 @@
 #include <geometry_msgs/TransformStamped.h> //IMU
 #include <geometry_msgs/Vector3Stamped.h> //velocity
 #include <sensor_msgs/LaserScan.h> //obstacle distance && ultrasonic
-#include <PID_Controller.h>
+#include <PID_controller.h>
 
 ros::Subscriber left_image_sub;
 ros::Subscriber right_image_sub;
@@ -274,6 +274,8 @@ int main(int argc, char** argv)
     obstacle_distance_sub = my_node.subscribe("/guidance/obstacle_distance", 1, obstacle_distance_callback);
     ultrasonic_sub        = my_node.subscribe("/guidance/ultrasonic", 1, ultrasonic_callback);
 
+    PID_controller pid_test;
+    
     while (ros::ok())
         ros::spinOnce();
 

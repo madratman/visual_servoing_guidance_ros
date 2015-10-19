@@ -8,7 +8,7 @@
 //     this->min_ = min;
 //     this->max_ = max;
 // }
-#include "PID_Controller.h"
+#include "PID_controller.h"
 
 double PID_controller::calculate( double setpoint, double observed )
 {
