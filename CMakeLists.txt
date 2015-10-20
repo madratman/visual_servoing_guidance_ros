@@ -12,7 +12,7 @@ find_package(OpenCV REQUIRED)
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES PID_controller
+  LIBRARIES PID_controller Line_detector
   CATKIN_DEPENDS roscpp
   DEPENDS system_lib
 )
@@ -24,6 +24,10 @@ include_directories(
 
 add_library(PID_controller
    src/PID_controller.cpp
+ )
+
+add_library(Line_detector
+  src/Line_detector.cpp
  )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
