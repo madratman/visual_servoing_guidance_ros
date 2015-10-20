@@ -28,13 +28,13 @@ double PID_controller::calculate( double setpoint, double observed )
 
     double error_prop = Kp_ * error_current;
 
-    step_error_integral_ += error_current*time_step_;
-    double error_integral = Ki_ * step_error_integral_;
+    // step_error_integral_ += error_current*time_step_;
+    // double error_integral = Ki_ * step_error_integral_;
 
     double step_error_derivative = (error_current - error_previous_) / time_step_;
     double error_derivative = Kd_ * step_error_derivative;
 
-    double output = error_prop + error_integral + error_derivative;
+    double output = error_prop + error_derivative;
 
     // TODO Maybe we need separate caps on the integral term.z 
     if( output > max_ )
@@ -47,10 +47,10 @@ double PID_controller::calculate( double setpoint, double observed )
     return output;
 }
 
-void PID_controller::set_gains(double Kp, double Ki, double Kd)
+void PID_controller::set_gains(double Kp, double Kd)
 {
     Kp_ = Kp;
-    Ki_ = Ki;
+    // Ki_ = Ki;
     Kd_ = Kd;
 } 
 
