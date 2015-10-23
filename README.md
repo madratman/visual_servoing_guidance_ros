@@ -21,3 +21,17 @@ To reduce the size of this package, we omit all documents.
 - For getting started, please refer to [Developer Guide](https://github.com/dji-sdk/Guidance-SDK/blob/master/doc/Guides/Developer_Guide/en/DeveloperGuide_en.md).
 - For detailed API documentation, please refer to [Guidance_SDK_API](https://github.com/dji-sdk/Guidance-SDK/blob/master/doc/Guidance_SDK_API/Guidance_SDK_API.md).
 
+# Calibration
+     rosrun GuidanceRos GuidanceNodeCalibration
+
+     rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.108 right:=/guidance/right/image_raw left:=/guidance/left/image_raw right_camera:=/guidance/right left_camera:=/guidance/left --no-service-check
+(change --size param accordingly)
+
+# Viewing pointcloud, disparity, changing stereo params
+    rosrun GuidanceRos GuidanceNodeCalibration
+    ROS_NAMESPACE=guidance rosrun stereo_image_proc stereo_image_proc _approximate_sync:=True
+    rosrun image_view stereo_view stereo:=guidance image:=image_rect_color
+    rosrun rqt_reconfigure rqt_reconfigure 
+    rosrun rviz rviz. Change frame to "guidance". Add pc2. 
+(GuidanceNodeCalibration publishes hardcoded params which are got from its API first. To improve on this later by either using cam_info_manager or a YAML parser)
+In rqt_reconfigure, play around to improve disparity (http://wiki.ros.org/stereo_image_proc/Tutorials/ChoosingGoodStereoParameters)
