@@ -5,9 +5,34 @@
 	<!-- load the world file with the transmission lines -->
 	<arg name="world_name" default="$(find GuidanceRos)/worlds/transmission_lines_horizontal.world"/>
 	<include file="$(find GuidanceRos)/launch/world.launch">
-  	<arg name="world_name" default="$(arg world_name)"/>
+		<arg name="world_name" default="$(arg world_name)"/>
 	</include>
 
-	<!-- spawn the hector quadcopter in Gazebo  -->
-	<include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" />
+	<arg name="name" default="quadrotor"/>
+	<arg name="tf_prefix" default="$(optenv ROS_NAMESPACE)"/>
+	<arg name="x" default="0.0"/>
+	<arg name="y" default="0.0"/>
+	<arg name="z" default="0.3"/>
+
+	<arg name="use_ground_truth_for_tf" default="true"/>
+	<arg name="use_ground_truth_for_control" default="true"/>
+	<arg name="use_pose_estimation" if="$(arg use_ground_truth_for_control)" default="false"/>
+	<arg name="use_pose_estimation" unless="$(arg use_ground_truth_for_control)" default="true"/>
+
+   <!-- spawn the hector quadcopter in Gazebo  -->
+	<include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch">
+	 <arg name="name" default="$(arg name)"/>
+	 <arg name="model" value="$(find GuidanceRos)/urdf/quadrotor_with_upward_facing_cam.gazebo.xacro"/>
+	 <arg name="tf_prefix" default="$(arg tf_prefix)"/>
+	 <arg name="x" default="$(arg x)"/>
+	 <arg name="y" default="$(arg y)"/>
+	 <arg name="z" default="$(arg z)"/>   
+	 <arg name="use_ground_truth_for_tf" value="$(arg use_ground_truth_for_tf)"/>
+	 <arg name="use_ground_truth_for_control" value="$(arg use_ground_truth_for_control)"/>
+	 <arg name="use_pose_estimation" value="$(arg use_pose_estimation)"/>
+	</include>
+
+	<!-- rviz -->
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find GuidanceRos)/rviz/upward_cam.rviz"/>
+
 </launch>

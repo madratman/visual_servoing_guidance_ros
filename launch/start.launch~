@@ -1,6 +1,0 @@
-<arg name="world_name" default="$(find quad_world)/worlds/tonystart124.world" />
-<include file="$(find quad_world)/launch/world.launch">
-  <arg name="world_name" default="$(arg world_name)"/>
-</include>
-
-<include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" />
