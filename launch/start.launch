@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+
+<launch>
+
+	<!-- load the world file with the transmission lines -->
+	<arg name="world_name" default="$(find GuidanceRos)/worlds/transmission_lines_horizontal.world"/>
+	<include file="$(find GuidanceRos)/launch/world.launch">
+  	<arg name="world_name" default="$(arg world_name)"/>
+	</include>
+
+	<!-- spawn the hector quadcopter in Gazebo  -->
+	<include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" />
+</launch>
