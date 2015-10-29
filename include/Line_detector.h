@@ -38,11 +38,12 @@ struct Line
         // return(std::min( num/std::max(den, std::numeric_limits<double>::epsilon()) , std::numeric_limits<double>::max() )
         if(!abs(start_point_.x_ - end_point_.x_) < 3) /* these are just pixel values */
         { 
-            slope_ = (end_point_.y_ - start_point_.y_) / (start_point_.x_ - start_point_.x_);
-            angle_ = atan2( (end_point_.x_ - start_point_.x_), (end_point_.y_ - start_point_.y_ ) ) * 180/M_PI;
+            slope_ = (end_point_.y_ - start_point_.y_) / (end_point_.x_ - start_point_.x_);
+            angle_ = std::floor( atan2( (end_point_.x_ - start_point_.x_), (end_point_.y_ - start_point_.y_ ) ) * 180/M_PI);
         }
         else
         { 
+            std::cout << "start_point_.x " << start_point_.x_ << "start_point_,y" << start_point_.y_ <<std::endl;
             slope_ = 1000.0; /* not sure about this */
             angle_ = 90;
         }
@@ -73,9 +74,10 @@ class Line_detector
 {
     public:
         Line_detector(std::vector<Vec4i> original_lines); /* ensure a vector is passed if only one line is spitted out by HT */
-        std::vector<cv::Vec4i> remove_duplicates(); // returns vector of openCV lines 
+        cv::Vec4i remove_duplicates(); // returns vector of openCV lines 
         std::vector<cv::Vec4i> from_Lines_struct_to_opencv_lines(std::vector<Line> line_struct_vector); // utility method to convert from variable unique_lines_ to a vector of openCV lines (vector<Vec4i>) 
- 
+        cv::Vec4i from_Lines_struct_to_opencv_lines(Line line_struct);
+
         std::vector<Line> original_lines_;
         std::vector<Line> unique_lines_;
 
