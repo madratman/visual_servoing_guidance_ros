@@ -27,8 +27,7 @@ struct Line
     double dist_from_origin_;
     int strength_;
 
-    /* Dear future self, 
-    *TODO* this constructor can prove to be costly.
+    /* TODO this constructor can prove to be costly.
     Is it better to calculate all this in separate member functions?
     But these are minor calculations anyway, so meh. */
     void evaluate()
@@ -36,6 +35,7 @@ struct Line
         length_ = sqrt(pow(abs(end_point_.x_ - start_point_.x_), 2) + pow(abs(end_point_.y_ - start_point_.x_), 2));
         
         /* TODO a seg fault is bound occur if den = 0  or close to zero. Check what defines close */
+        // return(std::min( num/std::max(den, std::numeric_limits<double>::epsilon()) , std::numeric_limits<double>::max() )
         if(!abs(start_point_.x_ - end_point_.x_) < 3) /* these are just pixel values */
         { 
             slope_ = (end_point_.y_ - start_point_.y_) / (start_point_.x_ - start_point_.x_);
@@ -73,11 +73,15 @@ class Line_detector
 {
     public:
         Line_detector(std::vector<Vec4i> original_lines); /* ensure a vector is passed if only one line is spitted out by HT */
+        std::vector<cv::Vec4i> remove_duplicates(); // returns vector of openCV lines 
+        std::vector<cv::Vec4i> from_Lines_struct_to_opencv_lines(std::vector<Line> line_struct_vector); // utility method to convert from variable unique_lines_ to a vector of openCV lines (vector<Vec4i>) 
+ 
+        std::vector<Line> original_lines_;
+        std::vector<Line> unique_lines_;
+
     private:
         double threshold_length_; /* this threshold defines our (fake) "ROI" */  
         // dunno if this is a good idea : Rect ROI_; 
-
-        std::vector<Line> remove_duplicates(vector<Vec4i> lines);
 };
 
 #endif /* LINE_DETECTOR_H */
