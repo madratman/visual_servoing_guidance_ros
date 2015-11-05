@@ -30,6 +30,10 @@ add_library(Line_detector
   src/Line_detector.cpp
  )
 
+add_library(Control_quadcopter
+  src/Control_quadcopter.cpp
+ )
+
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 
 install(DIRECTORY include/${PROJECT_NAME}/
@@ -61,12 +65,13 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 add_executable(GuidanceNode ${PROJECT_SOURCE_DIR}/src/GuidanceNode.cpp ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp)
 add_executable(GuidanceNodeTest ${PROJECT_SOURCE_DIR}/src/GuidanceNodeTest.cpp)
-# add_executable(GuidanceNodeCalibration ${PROJECT_SOURCE_DIR}/src/GuidanceNodeCalibration.cpp ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp)
+add_executable(GuidanceNodeCalibration ${PROJECT_SOURCE_DIR}/src/GuidanceNodeCalibration.cpp ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp)
 add_executable(sim_node ${PROJECT_SOURCE_DIR}/src/sim_node.cpp)
 # add_executable(PID_node ${PROJECT_SOURCE_DIR}/src/PID_node.cpp)
 
 target_link_libraries(GuidanceNode DJI_guidance usb-1.0 ${catkin_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(GuidanceNodeTest ${catkin_LIBRARIES} ${OpenCV_LIBS})
-# target_link_libraries(GuidanceNodeCalibration DJI_guidance usb-1.0 ${catkin_LIBRARIES} ${OpenCV_LIBS})
-target_link_libraries(sim_node ${catkin_LIBRARIES} ${OpenCV_LIBS} Line_detector)
+target_link_libraries(GuidanceNodeCalibration DJI_guidance usb-1.0 ${catkin_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(Control_quadcopter ${catkin_LIBRARIES} ${OpenCV_LIBS} )
+target_link_libraries(sim_node ${catkin_LIBRARIES} ${OpenCV_LIBS} Control_quadcopter Line_detector)
 # target_link_libraries(PID_node ${catkin_LIBRARIES} ${OpenCV_LIBS})
