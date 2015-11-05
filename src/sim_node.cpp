@@ -34,6 +34,9 @@ int hough_prob_max_gap_bw_points_trackbar = upper_hough_prob_max_gap_bw_points_t
 /* Window names */
 const char* hough_prob_window = "Probabilistic Hough";
 
+// TODO Make a class. Publishing in callback with global Publisher is meh. 
+ros::Publisher quad_pose_pub; 
+
 void image_callback(const sensor_msgs::ImageConstPtr& left_img)
 {
     cv_bridge::CvImagePtr cv_ptr;
@@ -90,8 +93,14 @@ void image_callback(const sensor_msgs::ImageConstPtr& left_img)
     circle(hough_prob_result, Point(best_line[0],best_line[1]), 10, Scalar(0,0,255), 1, 8); // plots red circle at first end point
     circle(hough_prob_result, Point(best_line[2],best_line[3]), 10, Scalar(0,255,0), 1, 8); // plots green circle at second end point
 
+    cout << "best_line.angle() " << filtered_lines.return_best_angle() << endl;
+
     imshow(hough_prob_window, hough_prob_result);
 
+    // if(best_line)
+    // {
+
+    // }
     cv::waitKey(1);
 }
 

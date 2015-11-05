@@ -39,16 +39,16 @@ struct Line
         if(!abs(start_point_.x_ - end_point_.x_) < 3) /* these are just pixel values */
         { 
             slope_ = (end_point_.y_ - start_point_.y_) / (end_point_.x_ - start_point_.x_);
-            angle_ = std::floor( atan2( (end_point_.x_ - start_point_.x_), (end_point_.y_ - start_point_.y_ ) ) * 180/M_PI);
+            angle_ = std::floor( atan2( (end_point_.y_ - start_point_.y_ ),  (end_point_.x_ - start_point_.x_) ) * 180/M_PI);
         }
         else
         { 
-            std::cout << "start_point_.x " << start_point_.x_ << "start_point_,y" << start_point_.y_ <<std::endl;
             slope_ = 1000.0; /* not sure about this */
             angle_ = 90;
         }
-        intercept_ = (-slope_ * start_point_.x_) + start_point_.y_;    
-        dist_from_origin_ = abs(intercept_) / sqrt(1 + pow(slope_,2));
+
+        intercept_ = (-slope_ * (start_point_.x_ + 320)) + (240 + start_point_.y_);    
+        dist_from_origin_ = abs( -240 + (slope_ *320) + intercept_) / sqrt(1 + pow(slope_,2));
         strength_ = 1; /* one line detected implies strength is 1 */
     }
 
@@ -77,9 +77,14 @@ class Line_detector
         cv::Vec4i remove_duplicates(); // returns vector of openCV lines 
         std::vector<cv::Vec4i> from_Lines_struct_to_opencv_lines(std::vector<Line> line_struct_vector); // utility method to convert from variable unique_lines_ to a vector of openCV lines (vector<Vec4i>) 
         cv::Vec4i from_Lines_struct_to_opencv_lines(Line line_struct);
+        std::vector<double> return_unique_angles();
+        std::vector<double> return_original_angles();
+        double return_best_angle();
+        std::vector< std::vector<double> > return_original_angle_and_dist_from_origin();
 
         std::vector<Line> original_lines_;
         std::vector<Line> unique_lines_;
+        Line best_line_;
 
     private:
         double threshold_length_; /* this threshold defines our (fake) "ROI" */  
