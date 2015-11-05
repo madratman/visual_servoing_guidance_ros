@@ -1,12 +1,15 @@
 #include "Line_detector.h"
 using namespace std;
 
-Line_detector::Line_detector(std::vector<Vec4i> opencv_lines)
+Line_detector::Line_detector(std::vector<Vec4i> opencv_lines, int image_width, int image_height)
 {
+    class_image_width_ = image_width;
+    class_image_height_ = image_height;
+
     for (int i=0; i<opencv_lines.size();i++)
     {
         // converts current opencv line to Line struct 
-        Line current_line(opencv_lines[i]);
+        Line current_line(opencv_lines[i], class_image_width_, class_image_height_);
         original_lines_.push_back(current_line);
     }
     std::cout << "no of original_lines_ " << original_lines_.size() << std::endl;
@@ -101,7 +104,7 @@ cv::Vec4i Line_detector::remove_duplicates()
     }
 
    // Best line
-    Line best = Line(Coordinate(0,0), Coordinate(0,0));
+    Line best = Line(Coordinate(0,0), Coordinate(0,0), class_image_width_, class_image_height_);
 
     for( int i = 0; i < unique_lines_.size() ; i++ )
     {
@@ -161,4 +164,11 @@ double Line_detector::return_best_angle()
     double best_angle;
     best_angle = best_line_.angle_;
     return best_angle;
+}
+
+double Line_detector::return_best_dist_from_origin()
+{
+    double best_dist_from_origin_;
+    best_dist_from_origin_ = best_line_.dist_from_origin_;
+    return best_dist_from_origin_;
 }

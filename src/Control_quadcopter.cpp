@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include "Line_detector.h"
 #include "Control_quadcopter.h"
@@ -45,6 +46,8 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& left_i
     Mat image_after_canny; 
     Mat hough_standard_result; 
     Mat hough_prob_result; 
+    int image_original_width = image_original.cols;
+    int image_original_height = image_original.rows;
 
     vector<Vec4i> opencv_lines; // lines detected by hough transform
     vector<Vec4i> unique_lines; // unique lines returned by Line_detector::remove_duplicates()
@@ -76,14 +79,17 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& left_i
     HoughLinesP(image_after_canny, opencv_lines, 1, CV_PI/180, lower_hough_prob_min_no_of_intersections_trackbar + hough_prob_min_no_of_intersections_trackbar, lower_hough_prob_min_no_of_points_trackbar + hough_prob_min_no_of_points_trackbar, lower_hough_prob_max_gap_bw_points_trackbar + hough_prob_max_gap_bw_points_trackbar);
 
     // Filter out duplicates : combine fragment lines + multiple parallel lines
-    Line_detector filtered_lines(opencv_lines);
+    Line_detector filtered_lines(opencv_lines, image_original_width, image_original_height);
     best_line = filtered_lines.remove_duplicates();
     line(hough_prob_result, Point(best_line[0], best_line[1]), Point(best_line[2], best_line[3]), Scalar(255,0,0), 1, CV_AA);
     circle(hough_prob_result, Point(best_line[0],best_line[1]), 10, Scalar(0,0,255), 1, 8); // plots red circle at first end point
     circle(hough_prob_result, Point(best_line[2],best_line[3]), 10, Scalar(0,255,0), 1, 8); // plots green circle at second end point
+    circle(hough_prob_result, Point(image_original_width/2, image_original_height/2), 10, Scalar(255,255,255), 1, 8); 
 
-    cout << "best_line.angle() " << filtered_lines.return_best_angle() << endl;
-
+    double best_angle = filtered_lines.return_best_angle();
+    cout << "best_line.angle() " << best_angle << endl;
+    cout << "current yaw " << yaw_ << endl;
+    cout << "dist_from_origin_" << filtered_lines.return_best_dist_from_origin() << endl;
     imshow(hough_prob_window, hough_prob_result);
 
     // if(best_line)
@@ -92,10 +98,32 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& left_i
     // }
     cv::waitKey(1);
 
-	geometry_msgs::PoseStamped target_pose;
-	pose_publisher_.publish(target_pose);	
+    // Publish target pose 
+	// geometry_msgs::PoseStamped target_pose;
+	// pose_publisher_.publish(target_pose);	
 }
 
-void Control_quadcopter::quadcopter_state_callback(const sensor_msgs::Imu& imu_data)
+void Control_quadcopter::quadcopter_state_callback(const geometry_msgs::PoseStamped pose_msg)
 {
+    tf::Quaternion quat;
+
+    // get RPY from the pose msg parameter
+    tf::quaternionMsgToTF(pose_msg.pose.orientation, quat);
+    tf::Matrix3x3(quat).getRPY(roll_, pitch_, yaw_);
+    // yaw in [-pi, pi]
+
+    // convert to degree
+    roll_ = roll_ * 180/M_PI;
+    pitch_ = pitch_ * 180/M_PI;
+    yaw_ = yaw_ * 180/M_PI;
+
+    if(yaw_ < 0)
+    {
+        yaw_ = yaw_ + 180;
+    }
+
+    // get position
+    pos_x_ = pose_msg.pose.position.x;
+    pos_y_ = pose_msg.pose.position.y;
+    pos_z_ = pose_msg.pose.position.z;
 }
