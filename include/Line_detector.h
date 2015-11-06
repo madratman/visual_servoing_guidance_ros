@@ -8,11 +8,12 @@
 using namespace cv;
 
 // from castacks::math_utils::numeric_operations
-double safe_division(double a, double b) {
-  if (fabs(b) > std::numeric_limits<double>::epsilon())
-    return a/b;
-  else
-    return a/std::numeric_limits<double>::epsilon();
+double safe_division(double a, double b)
+{
+    if (fabs(b) > std::numeric_limits<double>::epsilon())
+        return a/b;
+    else
+        return a/std::numeric_limits<double>::epsilon();
 }
 
 struct Coordinate
@@ -30,45 +31,44 @@ struct Line
     struct Coordinate end_point_;
     double length_;
     double slope_;
-    double angle_;
-    double intercept_;
-    double dist_from_origin_;
-    int strength_;
+    double angle_; // degrees
+    double intercept_; // Y axis intercept. Origin is the top left corner (default by open cv)
+    double dist_from_origin_; // from center of image : (x,y) = (struct_image_width_/2, struct_image_height_/2)
+    int strength_; // strength corresponds to number of duplicate lines 
     int struct_image_width_;
     int struct_image_height_;
 
-    /* TODO this constructor can prove to be costly.
-    Is it better to calculate all this in separate member functions?
-    But these are minor calculations anyway, so meh. */
+    double transform_x_coordinate(double x_orig)
+    {   
+        return x_orig - (struct_image_width_/2);
+    }
+
+    double transform_y_coordinate(double y_orig)
+    {
+        return (struct_image_height_/2) - y_orig;
+    }
+       
     void evaluate()
     {
         length_ = sqrt(pow(abs(end_point_.x_ - start_point_.x_), 2) + pow(abs(end_point_.y_ - start_point_.x_), 2));
         
         /* TODO a seg fault is bound occur if den = 0  or close to zero. Check what defines close */
         // return(std::min( num/std::max(den, std::numeric_limits<double>::epsilon()) , std::numeric_limits<double>::max() )
-        if(!abs(start_point_.x_ - end_point_.x_) < 3) /* these are just pixel values */
-        { 
-            slope_ = safe_division( (end_point_.y_ - start_point_.y_) , (end_point_.x_ - start_point_.x_) );
+        slope_ = safe_division( (end_point_.y_ - start_point_.y_) , (end_point_.x_ - start_point_.x_) );
             
-            // [-pi, pi] with quadrant sign
-            angle_ = std::floor( atan2( (end_point_.y_ - start_point_.y_ ),  (end_point_.x_ - start_point_.x_) ) * 180/M_PI);
-          
-            // [0, pi]. We don't care about quadrant  
-            if(angle_ < 0)
-            {
-                angle_ = angle_ + 180; // still don't use atan as it's not robust to division by (close to) zero
-            }
-        }
-        else
-        { 
-            slope_ = 1000.0; /* not sure about this */
-            angle_ = 90;
+        // [-pi, pi] with quadrant sign
+        angle_ = std::floor( atan2( (end_point_.y_ - start_point_.y_ ),  (end_point_.x_ - start_point_.x_) ) * 180/M_PI);
+      
+        // [0, pi]. We don't care about quadrant  
+        if(angle_ < 0)
+        {
+            angle_ = angle_ + 180; // still don't use atan as it's not robust to division by (close to) zero
         }
 
-        intercept_ = (-slope_ * (start_point_.x_)) + (start_point_.y_); 
-        // dist from image center : (struct_image_width_/2, image_height/2)
+        intercept_ = (-slope_ * start_point_.x_) + (start_point_.y_); 
+        // dist from image center (0,0)
         // dist = | y-mx-c | / sqrt(1+m^2)
-        dist_from_origin_ = abs( safe_division( ( (struct_image_height_/2) - (slope_ * struct_image_width_/2) - intercept_),  (sqrt(1 + pow(slope_,2))) ) );
+        dist_from_origin_ = abs( safe_division( intercept_, sqrt(1 + pow(slope_,2)) ) );
         strength_ = 1; /* one line detected implies strength is 1 */
     }
 
@@ -76,10 +76,11 @@ struct Line
     
     Line(Vec4i opencv_line, int image_width, int image_height)
     {
-        start_point_ = Coordinate(opencv_line[0], opencv_line[1]);
-        end_point_ = Coordinate(opencv_line[2], opencv_line[3]);
+        // image center is origin. Transform coordinates
         struct_image_width_ = image_width;
         struct_image_height_ = image_height; 
+        start_point_ = Coordinate( transform_x_coordinate(opencv_line[0]), transform_y_coordinate(opencv_line[1]) );
+        end_point_ = Coordinate( transform_x_coordinate(opencv_line[2]), transform_y_coordinate(opencv_line[3]) );
         evaluate();      
     }
 
@@ -91,7 +92,6 @@ struct Line
         struct_image_height_ = image_height; 
         evaluate();      
     }
-
 };
 
 class Line_detector
@@ -106,6 +106,9 @@ class Line_detector
         double return_best_angle();
         double return_best_dist_from_origin();
         std::vector< std::vector<double> > return_original_angle_and_dist_from_origin();
+        double return_best_intercept();
+        double transform_x_coordinate_to_opencv(double x_orig);
+        double transform_y_coordinate_to_opencv(double y_orig);
 
         std::vector<Line> original_lines_;
         std::vector<Line> unique_lines_;

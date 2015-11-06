@@ -1,5 +1,15 @@
-#include "Line_detector.h"
+#include "Line_detector.h"  
 using namespace std;
+
+double Line_detector::transform_x_coordinate_to_opencv(double x_orig)
+{   
+    return x_orig + (class_image_width_/2);
+}
+
+double Line_detector::transform_y_coordinate_to_opencv(double y_orig)
+{
+    return (class_image_height_/2) - y_orig;
+}
 
 Line_detector::Line_detector(std::vector<Vec4i> opencv_lines, int image_width, int image_height)
 {
@@ -22,10 +32,10 @@ std::vector<cv::Vec4i> Line_detector::from_Lines_struct_to_opencv_lines(std::vec
     for (int i=0; i<line_struct_vector.size();i++)
     {   
         cv::Vec4i current_line; 
-        current_line[0] = line_struct_vector[i].start_point_.x_;
-        current_line[1] = line_struct_vector[i].start_point_.y_;
-        current_line[2] = line_struct_vector[i].end_point_.x_;
-        current_line[3] = line_struct_vector[i].end_point_.y_;
+        current_line[0] = transform_x_coordinate_to_opencv(line_struct_vector[i].start_point_.x_);
+        current_line[1] = transform_y_coordinate_to_opencv(line_struct_vector[i].start_point_.y_);
+        current_line[2] = transform_x_coordinate_to_opencv(line_struct_vector[i].end_point_.x_);
+        current_line[3] = transform_y_coordinate_to_opencv(line_struct_vector[i].end_point_.y_);
     
         opencv_lines.push_back(current_line);
     }
@@ -36,89 +46,79 @@ cv::Vec4i Line_detector::from_Lines_struct_to_opencv_lines(Line line_struct)
 {
     cv::Vec4i opencv_line;
 
-    opencv_line[0] = line_struct.start_point_.x_;
-    opencv_line[1] = line_struct.start_point_.y_;
-    opencv_line[2] = line_struct.end_point_.x_;
-    opencv_line[3] = line_struct.end_point_.y_;
+    opencv_line[0] = transform_x_coordinate_to_opencv(line_struct.start_point_.x_);
+    opencv_line[1] = transform_y_coordinate_to_opencv(line_struct.start_point_.y_);
+    opencv_line[2] = transform_x_coordinate_to_opencv(line_struct.end_point_.x_);
+    opencv_line[3] = transform_y_coordinate_to_opencv(line_struct.end_point_.y_);
     
     return opencv_line;
 }   
 
 cv::Vec4i Line_detector::remove_duplicates()
 {
-    std::vector<Line> no_duplicates(original_lines_.size()); 
+    // cout << "original_lines_.size() " << original_lines_.size()<<endl;
+    Coordinate new_start_point;
+    Coordinate new_end_point;
 
     for(size_t j = 0; j < original_lines_.size(); j++)
     {
         Line current_line(original_lines_[j]);
+
+        new_start_point = current_line.start_point_;
+        new_end_point = current_line.end_point_;
+
+        for(int i = 0; i < j; i++)
+        {   
+            // cout << "j, i " << j << ", " << i << endl;  
+            // cout << "current_line.angle_" << current_line.angle_ << endl;
+            // cout << "original_lines_[i].angle_" << original_lines_[i].angle_ << endl;
+            // cout << "current_line.intercept_" << current_line.intercept_ << endl;
+            // cout << "original_lines_[i].intercept_" << original_lines_[i].intercept_ << endl;
+
+            // cout << "current_line.slope_" << current_line.slope_ << endl;
+            // cout << "original_lines_[i].slope_" << original_lines_[i].slope_ << endl;
+
+            // cout << "current_line.start_point_" << current_line.start_point_.x_ << ", " << current_line.start_point_.y_ << endl;
+            // cout << "original_lines_[i].start_point_" << original_lines_[i].start_point_.x_ << ", "<< original_lines_[i].start_point_.y_ << endl;
+
+            // cout << "current_line.end_point_" << current_line.end_point_.x_ << ", " << current_line.end_point_.y_ << endl;
+            // cout << "original_lines_[i].end_point_" << original_lines_[i].end_point_.x_ << ", "<< original_lines_[i].end_point_.y_ << endl;
         
-        if(no_duplicates.size() > 0)
-        {
-            int counter = 0;
-            for(int i = 0; i < no_duplicates.size(); i++)
+            // What is the best comparator for almost parallel lines and close
+            if(abs(original_lines_[i].angle_ - current_line.angle_) < 10)
             {   
-                // cout << "current_line.intercept_  " << current_line.intercept_ << endl;
-                // cout << "no_duplicates[ " << i <<" ].intercept_ "<< no_duplicates[i].intercept_<<endl;
-                // cout << "current_line.slope_" << current_line.slope_ <<endl;
-                // cout << "no_duplicates[ " << i <<" ].slope_ "<< no_duplicates[i].slope_<<endl;
-                // cout << "no_duplicates[ " << i <<" ].angle_ "<< no_duplicates[i].angle_<<endl;
-                /* What is the best comparator? */
-                if(abs(no_duplicates[i].slope_ - current_line.slope_) < 0.2 && abs(no_duplicates[i].intercept_ - current_line.intercept_) < 10)
-                {   
-                    // cout <<"duplicate found, i =  " << i <<endl;
-                    Coordinate new_start_point, new_end_point;
-                    if(current_line.slope_ > 0)
-                    {
-                        new_start_point.x_ = std::min(current_line.start_point_.x_, no_duplicates[i].start_point_.x_);
-                        new_start_point.y_ = std::min(current_line.start_point_.y_, no_duplicates[i].start_point_.y_);
-                        new_end_point.x_ = std::max(current_line.start_point_.x_, no_duplicates[i].start_point_.x_);
-                        new_end_point.y_ = std::max(current_line.start_point_.y_, no_duplicates[i].start_point_.y_);
-                    }
-                    else
-                    {
-                        new_start_point.x_ = std::min(current_line.start_point_.x_, no_duplicates[i].start_point_.x_);
-                        new_start_point.y_ = std::max(current_line.start_point_.y_, no_duplicates[i].start_point_.y_);
-                        new_end_point.x_ = std::max(current_line.start_point_.x_, no_duplicates[i].start_point_.x_);
-                        new_end_point.y_ = std::min(current_line.start_point_.y_, no_duplicates[i].start_point_.y_);
-                    }
-
-                    no_duplicates[i].start_point_ = new_start_point;
-                    no_duplicates[i].end_point_ = new_end_point;
-                    no_duplicates[i].evaluate(); // default strength is one
-                    no_duplicates[i].strength_ += 1;
-
-                    counter += 1;
-                    // std::cout<<counter<<std::endl;
-                    break;
-                    unique_lines_.push_back(no_duplicates[i]);
+                cout <<"duplicate found, j, i =  " << j << ", "<< i <<endl;    
+                // If lines are almost parallel, we combine them to find the longest line. Self explanatory code block. 
+                // less than zero, as in opencv the Y axis is flipped
+                if(current_line.slope_ > 0)
+                {
+                    new_start_point.x_ = std::min(new_start_point.x_, std::min(current_line.start_point_.x_, original_lines_[i].start_point_.x_));
+                    new_start_point.y_ = std::min(new_start_point.y_, std::min(current_line.start_point_.y_, original_lines_[i].start_point_.y_));
+                    new_end_point.x_ = std::max(new_end_point.x_, std::max(current_line.start_point_.x_, original_lines_[i].start_point_.x_));
+                    new_end_point.y_ = std::max(new_end_point.y_, std::max(current_line.start_point_.y_, original_lines_[i].start_point_.y_));
+                    cout<< "slope > 0 " <<endl;
                 }
+                else
+                {
+                    cout<< "slope < 0 " <<endl;
+                    new_start_point.x_ = std::min(new_start_point.x_, std::min(current_line.start_point_.x_, original_lines_[i].start_point_.x_));
+                    new_start_point.y_ = std::max(new_start_point.y_, std::max(current_line.start_point_.y_, original_lines_[i].start_point_.y_));
+                    new_end_point.x_ = std::max(new_end_point.x_, std::max(current_line.start_point_.x_, original_lines_[i].start_point_.x_));
+                    new_end_point.y_ = std::min(new_end_point.y_, std::min(current_line.start_point_.y_, original_lines_[i].start_point_.y_));
+                }
+
+                cout << new_start_point.x_ << ", " << new_start_point.y_ << endl;
             }
-            if(counter)
-                continue;
         }
 
-        // Else just append it to no_duplicates lines' vector
-        Line new_line(current_line);
-        // save std::vector<Line> memeber 
-        unique_lines_.push_back(new_line);
+        best_line_.start_point_ = new_start_point;
+        best_line_.end_point_ = new_end_point;
+        best_line_.evaluate(); 
+        best_line_.strength_ = 1;
     }
-
-   // Best line
-    Line best = Line(Coordinate(0,0), Coordinate(0,0), class_image_width_, class_image_height_);
-
-    for( int i = 0; i < unique_lines_.size() ; i++ )
-    {
-        if( (unique_lines_[i].strength_ * 10 + unique_lines_[i].length_) > (best.strength_ * 10 + best.length_) )
-        {
-            best = unique_lines_[i];
-        }
-    }
-
-    // Save the best line as the member variable of Line_detector object
-    best_line_ = best;
 
     // convert back to openCV lines and return 
-    Vec4i best_opencv_line = from_Lines_struct_to_opencv_lines(best);
+    Vec4i best_opencv_line = from_Lines_struct_to_opencv_lines(best_line_);
     
     return best_opencv_line;
 }
@@ -171,4 +171,11 @@ double Line_detector::return_best_dist_from_origin()
     double best_dist_from_origin_;
     best_dist_from_origin_ = best_line_.dist_from_origin_;
     return best_dist_from_origin_;
+}
+
+double Line_detector::return_best_intercept()
+{
+    double best_intercept;
+    best_intercept = best_line_.intercept_;
+    return best_intercept;
 }

@@ -31,5 +31,6 @@ class Control_quadcopter
 		ros::Subscriber quadcopter_pose_subscriber_;
 
 		// Variables shared b/w callbacks, required to publish the next desired pose 
-		double roll_, pitch_, yaw_, pos_x_, pos_y_, pos_z_; 
+		double current_roll_, current_pitch_, current_yaw_, current_pos_x_, current_pos_y_, current_pos_z_; 
+		tf::Quaternion current_quat_;
 };	
