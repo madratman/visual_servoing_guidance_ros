@@ -87,7 +87,7 @@ cv::Vec4i Line_detector::remove_duplicates()
             // What is the best comparator for almost parallel lines and close
             if(abs(original_lines_[i].angle_ - current_line.angle_) < 10)
             {   
-                cout <<"duplicate found, j, i =  " << j << ", "<< i <<endl;    
+                // cout <<"duplicate found, j, i =  " << j << ", "<< i <<endl;    
                 // If lines are almost parallel, we combine them to find the longest line. Self explanatory code block. 
                 // less than zero, as in opencv the Y axis is flipped
                 if(current_line.slope_ > 0)
@@ -96,18 +96,18 @@ cv::Vec4i Line_detector::remove_duplicates()
                     new_start_point.y_ = std::min(new_start_point.y_, std::min(current_line.start_point_.y_, original_lines_[i].start_point_.y_));
                     new_end_point.x_ = std::max(new_end_point.x_, std::max(current_line.start_point_.x_, original_lines_[i].start_point_.x_));
                     new_end_point.y_ = std::max(new_end_point.y_, std::max(current_line.start_point_.y_, original_lines_[i].start_point_.y_));
-                    cout<< "slope > 0 " <<endl;
+                    // cout<< "slope > 0 " <<endl;
                 }
                 else
                 {
-                    cout<< "slope < 0 " <<endl;
+                    // cout<< "slope < 0 " <<endl;
                     new_start_point.x_ = std::min(new_start_point.x_, std::min(current_line.start_point_.x_, original_lines_[i].start_point_.x_));
                     new_start_point.y_ = std::max(new_start_point.y_, std::max(current_line.start_point_.y_, original_lines_[i].start_point_.y_));
                     new_end_point.x_ = std::max(new_end_point.x_, std::max(current_line.start_point_.x_, original_lines_[i].start_point_.x_));
                     new_end_point.y_ = std::min(new_end_point.y_, std::min(current_line.start_point_.y_, original_lines_[i].start_point_.y_));
                 }
 
-                cout << new_start_point.x_ << ", " << new_start_point.y_ << endl;
+                // cout << new_start_point.x_ << ", " << new_start_point.y_ << endl;
             }
         }
 
@@ -115,11 +115,13 @@ cv::Vec4i Line_detector::remove_duplicates()
         best_line_.end_point_ = new_end_point;
         best_line_.evaluate(); 
         best_line_.strength_ = 1;
+
+        // Find the equation of the line and extrapolate the segment to find the complete line (at least in the image plane)
     }
 
     // convert back to openCV lines and return 
-    Vec4i best_opencv_line = from_Lines_struct_to_opencv_lines(best_line_);
-    
+    Vec4i best_opencv_line = from_Lines_struct_to_opencv_lines(best_line_);    
+
     return best_opencv_line;
 }
 
@@ -179,3 +181,10 @@ double Line_detector::return_best_intercept()
     best_intercept = best_line_.intercept_;
     return best_intercept;
 }
+
+// TODO code cleanup. angle/length/dist can be extracted in the executable. Only best_line_ could be returned 
+Line Line_detector::return_best_line()
+{
+    return best_line_;
+}
+

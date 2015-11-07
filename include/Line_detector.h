@@ -25,6 +25,9 @@ struct Coordinate
     Coordinate(double x, double y){x_=x; y_=y;}
 };
 
+// Line struct facilitates (and abstracts away simple things like) finding slope, angle, intercept, dist_from_origin, length of an openCV line - given the image width and height.
+// Line_detector class' constructors call the Line struct constructor for each line. Then you can remove duplicates, or add methods to post process the line acc to your use case.   
+// You can convert back to openCV data type by using cv::Vec4i Line_detector::from_Lines_struct_to_opencv_lines(Line line_struct);
 struct Line
 {
     struct Coordinate start_point_;
@@ -47,7 +50,7 @@ struct Line
     {
         return (struct_image_height_/2) - y_orig;
     }
-       
+
     void evaluate()
     {
         length_ = sqrt(pow(abs(end_point_.x_ - start_point_.x_), 2) + pow(abs(end_point_.y_ - start_point_.x_), 2));
@@ -92,6 +95,17 @@ struct Line
         struct_image_height_ = image_height; 
         evaluate();      
     }
+
+    // Use this method to extrapolate a segment across the image border by using it's equation. 
+    // Basically extrapolate the full power line. Not a strict requirement at the time of writing, but for pretty pictures.
+    void extrapolate_to_image_width()
+    {
+        // TODO Not implemented
+        // start_point_.x_ = find_x_coordinate_at_given_y();
+        // start_point_.y_ = find_y_coordinate_at_given_x();
+        // end_point_.x_ = find_x_coordinate_at_given_y();
+        // end_point_.y_ = find_y_coordinate_at_given_x();
+    } 
 };
 
 class Line_detector
@@ -109,6 +123,8 @@ class Line_detector
         double return_best_intercept();
         double transform_x_coordinate_to_opencv(double x_orig);
         double transform_y_coordinate_to_opencv(double y_orig);
+        Line return_best_line();
+
 
         std::vector<Line> original_lines_;
         std::vector<Line> unique_lines_;

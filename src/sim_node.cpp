@@ -8,14 +8,6 @@ int main(int argc, char **argv)
     // Create an object of class Control_quadcopter that will take care of everything
     Control_quadcopter control_quadcopter_object;
 
-    // ros::spin();
-
-    // return 0;
-
-    while (ros::ok())
-    {
-        ros::spinOnce();
-    }
-
+    ros::spin();
     return 0;
 }
