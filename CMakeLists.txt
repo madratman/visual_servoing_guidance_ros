@@ -7,6 +7,9 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   sensor_msgs
   geometry_msgs
+  image_transport
+  image_geometry
+  tf
 )
 find_package(OpenCV REQUIRED)
 
@@ -22,9 +25,10 @@ include_directories(
   include
 )
 
-add_library(PID_controller
-   src/PID_controller.cpp
- )
+# Not being used
+# add_library(PID_controller
+#    src/PID_controller.cpp
+#  )
 
 add_library(Line_detector
   src/Line_detector.cpp

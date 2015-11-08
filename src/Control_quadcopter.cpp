@@ -26,8 +26,12 @@ int hough_prob_max_gap_bw_points_trackbar = upper_hough_prob_max_gap_bw_points_t
 /* Window names */
 const char* hough_prob_window = "Probabilistic Hough";
 
-void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_message)
+
+void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_message, const sensor_msgs::CameraInfoConstPtr& cam_info_msg)
 {
+    // Update the camera model 
+    camera_model_.fromCameraInfo(cam_info_msg);
+
     // Convert the image_message to something that openCV understands
     cv_bridge::CvImagePtr cv_ptr;
     try 
@@ -99,9 +103,10 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
     // target quaternion for robots
     tf::Quaternion quat_target;
 
+
     // Now the main servoing block method starts
     if(opencv_lines.size() != 0) // Pay attention to the loop condition above and the corresponding else block. 
-    {
+    {  
         // Find the best line
         line_detector_ptr_ = new Line_detector(opencv_lines, image_original_width, image_original_height);
         best_line_opencv = line_detector_ptr_->remove_duplicates();
@@ -117,7 +122,8 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
         double best_angle = best_line_struct.angle_;
         double best_dist_from_origin = best_line_struct.dist_from_origin_;
         double best_line_length = best_line_struct.length_;
-        // cout << "best_angle " << best_angle << endl;
+        cout << "current_yaw_" << current_yaw_ << endl; 
+        cout << "best_angle " << best_angle << endl;
         // cout << "best_dist_from_origin" << best_dist_from_origin << endl;
         // cout << "intercept_ " << best_line_struct.intercept_ << endl;
         // cout << "best_line_length " << best_line_length << endl;
@@ -125,9 +131,10 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
         // If the line length is greater than MINIMUM_LINE_LENGTH_, we save it as the last decent detected line and also update the corresponding pose 
         if(best_line_struct.length_ > MINIMUM_LINE_LENGTH_)
         {
-            last_detected_line_ = best_line_struct;
+            last_detected_line_ = best_line_struct; // member of Control_quadcopter, and not line_detector class
             flag_last_detected_line_ = 1; // This flag is useful for the initial flying part, when we don't have any lines detected previously.
 
+            // for returning to that pose 
             roll_last_detected_line_ = current_roll_;
             pitch_last_detected_line_ = current_pitch_;
             yaw_last_detected_line_ = current_yaw_;
@@ -135,12 +142,58 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             pos_y_last_detected_line_ = current_pos_y_;
             pos_z_last_detected_line_ = current_pos_z_;
             quat_last_detected_line_ = current_quat_;
+
+            // for flying to the midpoint of the detected line in world frame
+            // We need to convert 2D pixel in image plane to 3D point in cam frame
+            
+            // find midpoint in image plane
+            cv::Point2d midpoint_last_detected_line = last_detected_line_.return_midpoint_opencv();
+
+            // ray is (X, Y, 1.0)
+            cv::Point3d ray = camera_model_.projectPixelTo3dRay(midpoint_last_detected_line); 
+
+            // Multiply by relative distance of wire from the cam, assuming roll, pitch = 0
+            // This is wrong as it is not the correct depth
+            cv::Point3d target_position_in_cam_frame = ray * (HEIGHT_OF_WIRE_ - current_pos_z_); // This need to be transformed to world frame now
+            
+            // To verify the result we can project the 3D point back to image plane
+            cv::Point2d verify_pixel = camera_model_.project3dToPixel(target_position_in_cam_frame);
+
+            // Now we need to transform to world frame (extrinsic matrix)
+            tf::Point target_point_in_cam_frame;
+
+            // Fill up target_point_in_cam_frame from openCV Point3d
+            // target_point_in_cam_frame.header = image_message->header; // doesn't matter
+            target_point_in_cam_frame[0] = target_position_in_cam_frame.x;
+            target_point_in_cam_frame[1] = target_position_in_cam_frame.y;
+            target_point_in_cam_frame[2] = target_position_in_cam_frame.z;
+
+            // Use tf to look up the extrinsic tranform matrix and find point in the world frame, and save it to Control_quadcopter member variable
+            tf::StampedTransform transform_from_world_to_camera_frame;
+            const std::string camera_frame = "downward_cam_optical_frame"; // rosrun rqt_tf_tree rqt_tf_tree
+            // const std::string camera_frame = "base_footprint"; // rosrun rqt_tf_tree rqt_tf_tree
+            const std::string world_frame = "world";
+            try
+            {
+                ros::Time acquisition_time = cam_info_msg->header.stamp;
+                ros::Duration timeout(1.0 / FRAMES_PER_SECOND_);
+                tf_listener_.waitForTransform(camera_frame, world_frame, acquisition_time, timeout);
+                tf_listener_.lookupTransform(camera_frame, world_frame, acquisition_time, transform_from_world_to_camera_frame);
+            }
+            catch (tf::TransformException& ex) 
+            {
+                ROS_WARN("[draw_frames] TF exception:\n%s", ex.what());
+                return;
+            }
+            
+            target_point_in_world_frame_ = transform_from_world_to_camera_frame * target_point_in_cam_frame;
+            // listener.transformPoint("target_frame", target_point_in_cam_frame, target_point_in_world_frame);
         }
 
         // add condition on line length 
 
         // Check if the wire is (almost) vertical in the image. Else make it vertical
-        if(abs(current_yaw_ - best_angle) < 5)
+        if(abs(90 - best_angle) < 5)
         {   
             // Check if wire is in the center of the image. Else move left/right to bring it to center
             if(abs(current_pos_x_ - best_dist_from_origin) < 10)
@@ -152,9 +205,9 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
                 roll_target = 0.0;
                 pitch_target = 0.0;
                 if(current_yaw_ > 0)
-                    yaw_target = 90.0;
+                    yaw_target = M_PI/2;
                 else
-                    yaw_target = -90;
+                    yaw_target = -M_PI/2;
 
                 quat_target.setRPY(roll_target, pitch_target, yaw_target);
 
@@ -164,11 +217,15 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
                 // Check how far is the wire. If high enough, stop. Else move up by 10 cm. 
                 if(HEIGHT_OF_WIRE_ - current_pos_z_ < 20)
                 {
+                    cout << "HEIGHT_OF_WIRE_ - current_pos_z_= " << HEIGHT_OF_WIRE_ - current_pos_z_ << endl;
+                    cout << "staying here " << endl;
                     target_pose.pose.position.z = current_pos_z_; 
                 } 
 
                 else
                 {
+                    cout << "HEIGHT_OF_WIRE_ - current_pos_z_= " << HEIGHT_OF_WIRE_ - current_pos_z_ << endl;
+                    cout << "flying up " << endl;
                     target_pose.pose.position.z = current_pos_z_ + 1; 
                 }  
             }
@@ -176,8 +233,9 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             else // Move horizontally such that the wire is in the center of line
             {
                 cout << "vertical but not in center " << endl;
-                target_pose.pose.position.x = current_pos_x_ + best_dist_from_origin; // todo. remove absolute from dist_from_origin_
-                target_pose.pose.position.y = current_pos_y_;
+                // target_pose.pose.position.x = current_pos_x_ + best_dist_from_origin; // todo. remove absolute from dist_from_origin_
+                target_pose.pose.position.x = target_point_in_world_frame_[0];  
+                target_pose.pose.position.y = -target_point_in_world_frame_[1]; // Y is opposite in sign check
                 target_pose.pose.position.z = current_pos_z_; 
 
                 roll_target = 0.0;
@@ -186,9 +244,9 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
                 // We don't care which way the quadcopter is facing, for now. 
                 // Target yaw depends on the current alignment as it's already nearly perpendicular
                 if(current_yaw_ > 0)
-                    yaw_target = 90.0;
+                    yaw_target = M_PI/2;
                 else
-                    yaw_target = -90;
+                    yaw_target = -M_PI/2;
 
                 quat_target.setRPY(roll_target, pitch_target, yaw_target);
 
@@ -209,11 +267,11 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             yaw_target;
             if(current_yaw_ > 0)
             {
-                yaw_target = 90.0;
+                yaw_target = M_PI/2;
             }
             else
             {
-                yaw_target = -90;
+                yaw_target = -M_PI/2;
             }
 
             quat_target.setRPY(roll_target, pitch_target, yaw_target);
@@ -228,8 +286,16 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
         cout << "zero lines detected. " << endl;
         if(flag_last_detected_line_)
         {
-            target_pose.pose.position.x = current_pos_x_; // todo. remove absolute from dist_from_origin_
-            target_pose.pose.position.y = current_pos_y_;
+            // If no line is found and flag_last_detected_line_ == 1, we need to fly back to the pose corresponding to the time when a line of decent length was detected last
+            // Or else, we could just fly to the point corresponding to the midpoint of the last line detected - in world coordinates
+            // The latter might be a bit jarring to the previous control strategy
+
+            // Either way, we need to find the 3D X, Y of the point. Z we know via a stereo cam in real life, or here in simulation we already know it
+            // We use the image_geometry and tf packages for the same. Image geometry does that for us using the intrinsic matrix
+            // For the extrinsic part, we need to use tf to transform to world coordinates 
+
+            target_pose.pose.position.x = target_point_in_world_frame_[0]; // todo. remove absolute from dist_from_origin_
+            target_pose.pose.position.y = target_point_in_world_frame_[1];
             target_pose.pose.position.z = current_pos_z_; 
             roll_target = 0.0;
             pitch_target = 0.0;

@@ -96,6 +96,12 @@ struct Line
         evaluate();      
     }
 
+    cv::Point2d return_midpoint_opencv()
+    {
+        cv::Point2d midpoint( (start_point_.x_ + end_point_.x_)/2 , (start_point_.y_ + end_point_.y_)/2 );
+        return midpoint;
+    }
+
     // Use this method to extrapolate a segment across the image border by using it's equation. 
     // Basically extrapolate the full power line. Not a strict requirement at the time of writing, but for pretty pictures.
     void extrapolate_to_image_width()
