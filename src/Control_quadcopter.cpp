@@ -26,6 +26,7 @@ int hough_prob_max_gap_bw_points_trackbar = upper_hough_prob_max_gap_bw_points_t
 /* Window names */
 const char* hough_prob_window = "Probabilistic Hough";
 
+// TOCHECK Possible bugs in different times of pose and cam image callback! Set pose callback when image arrives 
 
 void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_message, const sensor_msgs::CameraInfoConstPtr& cam_info_msg)
 {
@@ -119,14 +120,11 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
         circle(hough_prob_result, Point(image_original_width/2, image_original_height/2), 10, Scalar(255,255,255), 1, 8); // plots white circle at center of image
 
         // Find the various line's parameters to calculate the next pose target
-        double best_angle = best_line_struct.angle_;
+        double best_angle = best_line_struct.angle_; // Note range is [0, pi] due to symmetric nature of problem. Check Line_detector.h
         double best_dist_from_origin = best_line_struct.dist_from_origin_;
         double best_line_length = best_line_struct.length_;
         cout << "current_yaw_" << current_yaw_ << endl; 
         cout << "best_angle " << best_angle << endl;
-        // cout << "best_dist_from_origin" << best_dist_from_origin << endl;
-        // cout << "intercept_ " << best_line_struct.intercept_ << endl;
-        // cout << "best_line_length " << best_line_length << endl;
 
         // If the line length is greater than MINIMUM_LINE_LENGTH_, we save it as the last decent detected line and also update the corresponding pose 
         if(best_line_struct.length_ > MINIMUM_LINE_LENGTH_)
@@ -148,16 +146,17 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             
             // find midpoint in image plane
             cv::Point2d midpoint_last_detected_line = last_detected_line_.return_midpoint_opencv();
-
             // ray is (X, Y, 1.0)
             cv::Point3d ray = camera_model_.projectPixelTo3dRay(midpoint_last_detected_line); 
 
             // Multiply by relative distance of wire from the cam, assuming roll, pitch = 0
-            // This is wrong as it is not the correct depth
+            // This is wrong as it is not the correct depth. 
             cv::Point3d target_position_in_cam_frame = ray * (HEIGHT_OF_WIRE_ - current_pos_z_); // This need to be transformed to world frame now
             
             // To verify the result we can project the 3D point back to image plane
             cv::Point2d verify_pixel = camera_model_.project3dToPixel(target_position_in_cam_frame);
+            cout << "midpoint_last_detected_line " << midpoint_last_detected_line.x << ", " << midpoint_last_detected_line.y << endl; 
+            cout << "verify_pixel " << verify_pixel.x << ", " << verify_pixel.y << endl; 
 
             // Now we need to transform to world frame (extrinsic matrix)
             tf::Point target_point_in_cam_frame;
@@ -193,10 +192,10 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
         // add condition on line length 
 
         // Check if the wire is (almost) vertical in the image. Else make it vertical
-        if(abs(90 - best_angle) < 5)
+        if(abs(90 - best_angle) < 5) // TOCHECK. Angle ranges and sign bugs
         {   
             // Check if wire is in the center of the image. Else move left/right to bring it to center
-            if(abs(current_pos_x_ - best_dist_from_origin) < 10)
+            if(abs(current_pos_x_ - target_point_in_world_frame_[0]) < 3) // TOCHECK 
             {
                 cout << "vertical and center " << endl;
                 target_pose.pose.position.x = current_pos_x_;
@@ -226,7 +225,7 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
                 {
                     cout << "HEIGHT_OF_WIRE_ - current_pos_z_= " << HEIGHT_OF_WIRE_ - current_pos_z_ << endl;
                     cout << "flying up " << endl;
-                    target_pose.pose.position.z = current_pos_z_ + 1; 
+                    target_pose.pose.position.z = current_pos_z_ + 3; 
                 }  
             }
 
@@ -235,7 +234,7 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
                 cout << "vertical but not in center " << endl;
                 // target_pose.pose.position.x = current_pos_x_ + best_dist_from_origin; // todo. remove absolute from dist_from_origin_
                 target_pose.pose.position.x = target_point_in_world_frame_[0];  
-                target_pose.pose.position.y = -target_point_in_world_frame_[1]; // Y is opposite in sign check
+                target_pose.pose.position.y = target_point_in_world_frame_[1]; // Y is opposite in sign check
                 target_pose.pose.position.z = current_pos_z_; 
 
                 roll_target = 0.0;
@@ -267,12 +266,12 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             yaw_target;
             if(current_yaw_ > 0)
             {
-                yaw_target = M_PI/2;
+                yaw_target = current_yaw_ + (90 - best_angle); // spin too much? 
             }
-            else
-            {
-                yaw_target = -M_PI/2;
-            }
+            // else
+            // {
+            //     yaw_target = -M_PI/2;
+            // }
 
             quat_target.setRPY(roll_target, pitch_target, yaw_target);
 
@@ -294,26 +293,42 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             // We use the image_geometry and tf packages for the same. Image geometry does that for us using the intrinsic matrix
             // For the extrinsic part, we need to use tf to transform to world coordinates 
 
+            cout << "flag_last_detected_line_== 1 " << endl; 
             target_pose.pose.position.x = target_point_in_world_frame_[0]; // todo. remove absolute from dist_from_origin_
             target_pose.pose.position.y = target_point_in_world_frame_[1];
             target_pose.pose.position.z = current_pos_z_; 
             roll_target = 0.0;
             pitch_target = 0.0;
-            yaw_target = current_yaw_;
+            yaw_target = current_yaw_*180/M_PI; // doesn't matter
             quat_target.setRPY(roll_target, pitch_target, yaw_target);
             tf::quaternionTFToMsg(quat_target, target_pose.pose.orientation);
+        }
+
+        else // the quad is flying around in the beginning and no target should be specified 
+        {
+            target_pose.pose.position.x = 15; // todo. remove absolute from dist_from_origin_
+            target_pose.pose.position.y = 1;
+            target_pose.pose.position.z = 2; 
+            roll_target = 0.0;
+            pitch_target = 0.0;
+            yaw_target = 0.0; // doesn't matter
+            // quat_target.setRPY(roll_target, pitch_target, yaw_target);
+            // tf::quaternionTFToMsg(quat_target, target_pose.pose.orientation);
+            target_pose.pose.orientation.x = 0;
+            target_pose.pose.orientation.y = 0;
+            target_pose.pose.orientation.z = 1;
+            target_pose.pose.orientation.w = 1;
         }
         // publish back the current pose. So as to make the quad stay at its place
     }
     
-    cout << "target_pose.pose.position.x " << target_pose.pose.position.x << endl; 
-    cout << "target_pose.pose.position.y " << target_pose.pose.position.y << endl; 
-    cout << "target_pose.pose.position.z " << target_pose.pose.position.z << endl; 
-    cout << "roll_target " << roll_target << endl;
-    cout << "yaw_target " << yaw_target << endl;
-    cout << "pitch_target " << pitch_target << endl;
+    cout << "current_pos_x_" << current_pos_x_ << ", target_pose.pose.position.x " << target_pose.pose.position.x << endl; 
+    cout << "current_pos_y_" << current_pos_y_ << ", target_pose.pose.position.y " << target_pose.pose.position.y << endl; 
+    cout << "current_pos_z_" << current_pos_z_ << ", target_pose.pose.position.z " << target_pose.pose.position.z << endl << endl; 
+    cout << "current_roll_" << current_roll_ << ", roll_target " << roll_target*180/M_PI << endl;
+    cout << "current_pitch_" << current_pitch_ << ", pitch_target " << pitch_target*180/M_PI << endl;
+    cout << "current_yaw_" << current_yaw_ << ", yaw_target " << yaw_target*180/M_PI << endl;
 
-    // cout << "current yaw " << current_yaw_ << endl << endl << endl;
     imshow(hough_prob_window, hough_prob_result);
     cv::waitKey(1); 
     // Publish target pose 

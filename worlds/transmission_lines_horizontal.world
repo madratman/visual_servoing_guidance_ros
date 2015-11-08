@@ -13,7 +13,8 @@
       <link name="body">
         <visual name="visual">
           <geometry>
-            <mesh><uri>/home/ratneshmadaan/projects/cmu_airlab/simulation/src/quad_world/worlds/best_powerlines_horizontal.dae</uri></mesh>
+            <mesh><uri>/home/ratneshmadaan/projects/cmu_airlab/simulation/src/quad_world/worlds/single_line.dae</uri></mesh>
+            <!-- <mesh><uri>/home/ratneshmadaan/projects/cmu_airlab/simulation/src/quad_world/worlds/three_lines.dae</uri></mesh> -->
           </geometry>
         </visual>
       </link>
