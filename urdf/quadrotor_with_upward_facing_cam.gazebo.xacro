@@ -5,4 +5,3 @@
     <xacro:include filename="$(find hector_quadrotor_gazebo)/urdf/quadrotor_plugins.gazebo.xacro" />
     <xacro:quadrotor_plugins />
 </robot>
-

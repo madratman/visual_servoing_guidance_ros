@@ -1,13 +1,3 @@
-// PID_controller::PID_controller(double Kp, double Ki, double Kd, double time_step, double set_point, double min, double max)
-// {
-//     this->Kp_ = Kp;
-//     this->Ki_ = Ki;
-//     this->Kd_ = Kd;
-//     this->time_step_ = time_step_;	
-//     this->set_point_ = set_point;
-//     this->min_ = min;
-//     this->max_ = max;
-// }
 #include "PID_controller.h"
 
 double PID_controller::calculate( double setpoint, double observed )

@@ -131,18 +131,10 @@ void left_image_callback(const sensor_msgs::ImageConstPtr& left_img)
             circle(hough_prob_result, Point(l[0],l[1]), 10, Scalar(0,0,255), 1, 8); // plots red circle at first end point
             circle(hough_prob_result, Point(l[2],l[3]), 10, Scalar(0,255,0), 1, 8); // plots green circle at second end point
 
-            // the euclidean distance between the end points of the current line segment 
-            // lengths.push_back(norm(Point(l[0], l[1]) - Point(l[2], l[3]))); 
-
             cout << "no of detected lines is "<< lines.size()<<endl;
             float den = l[2] - l[0];
             cout << "angle of line number "<< i+1 << " is " << atan2( (l[3]-l[1]), (l[2]-l[0]) ) * 180/M_PI <<endl;
-
-            // cout << " x1 of line number " << i << " is " << l[0] - (WIDTH/2) << endl;
-            // cout << " y1 of line number " << i << " is " << l[1] - (WIDTH/2)<< endl;
-            // cout << " x2 of line number " << i << " is " << l[2] - (HEIGHT/2)<< endl;
-            // cout << " y2 of line number " << i << " is " << l[3] - (HEIGHT/2)<< endl;
-
+            
             x_1_points.push_back(l[0]);
             y_1_points.push_back(l[1]);
             x_2_points.push_back(l[2]);
@@ -150,6 +142,7 @@ void left_image_callback(const sensor_msgs::ImageConstPtr& left_img)
      
             angles.push_back(atan2( (l[3]-l[1]), (l[2]-l[0]) ) * 180/M_PI );
             // slopes_line.push_back( (l[3]-l[1]) / (l[2]-l[0]) );
+            float current_angle = atan2( (l[3]-l[1]), (l[2]-l[0]) ) * 180/M_PI;
             float slope_line = (l[3]-l[1]) / (l[2]-l[0]);
             float c_line = (-slope_line * l[0]) + l[1];
             // polar coordinates "r" : distance  of line y=mx+c from origin is |c|/rt(1+m^2)
@@ -275,7 +268,7 @@ int main(int argc, char** argv)
     ultrasonic_sub        = my_node.subscribe("/guidance/ultrasonic", 1, ultrasonic_callback);
 
     PID_controller pid_test;
-    
+
     while (ros::ok())
         ros::spinOnce();
 
