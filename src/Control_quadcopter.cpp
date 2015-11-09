@@ -80,7 +80,7 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
     HoughLinesP(image_after_canny, opencv_lines, 2, 0.05*CV_PI/180, lower_hough_prob_min_no_of_intersections_trackbar + hough_prob_min_no_of_intersections_trackbar, lower_hough_prob_min_no_of_points_trackbar + hough_prob_min_no_of_points_trackbar, lower_hough_prob_max_gap_bw_points_trackbar + hough_prob_max_gap_bw_points_trackbar);
     // 3rd and 4th argument are important in HoughLinesP. It's the resolution of rho and theta. 
 
-    cout << opencv_lines.size()<<endl;
+    // cout << opencv_lines.size()<<endl;
 
     /* View original lines */
     // for(int i = 0; i<opencv_lines.size(); i++)
@@ -123,9 +123,10 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
         double best_angle = best_line_struct.angle_; // Note range is [0, pi] due to symmetric nature of problem. Check Line_detector.h
         double best_dist_from_origin = best_line_struct.dist_from_origin_;
         double best_line_length = best_line_struct.length_;
-        cout << "current_yaw_" << current_yaw_ << endl; 
         cout << "best_angle " << best_angle << endl;
+        cout << "difference " << abs(90 - best_angle) << endl;
 
+        cv::Point2d midpoint_last_detected_line;
         // If the line length is greater than MINIMUM_LINE_LENGTH_, we save it as the last decent detected line and also update the corresponding pose 
         if(best_line_struct.length_ > MINIMUM_LINE_LENGTH_)
         {
@@ -145,7 +146,7 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             // We need to convert 2D pixel in image plane to 3D point in cam frame
             
             // find midpoint in image plane
-            cv::Point2d midpoint_last_detected_line = last_detected_line_.return_midpoint_opencv();
+            midpoint_last_detected_line = last_detected_line_.return_midpoint_opencv();
             // ray is (X, Y, 1.0)
             cv::Point3d ray = camera_model_.projectPixelTo3dRay(midpoint_last_detected_line); 
 
@@ -186,6 +187,9 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             }
             
             target_point_in_world_frame_ = transform_from_world_to_camera_frame * target_point_in_cam_frame;
+            cout << "target_point_in_world_frame_ " << target_point_in_world_frame_[0];
+            cout << ", " << target_point_in_world_frame_[1];
+            cout << ", " << target_point_in_world_frame_[2] << endl;
             // listener.transformPoint("target_frame", target_point_in_cam_frame, target_point_in_world_frame);
         }
 
@@ -195,7 +199,7 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
         if(abs(90 - best_angle) < 5) // TOCHECK. Angle ranges and sign bugs
         {   
             // Check if wire is in the center of the image. Else move left/right to bring it to center
-            if(abs(current_pos_x_ - target_point_in_world_frame_[0]) < 3) // TOCHECK 
+            if(abs(best_dist_from_origin) < 10) // TOCHECK 
             {
                 cout << "vertical and center " << endl;
                 target_pose.pose.position.x = current_pos_x_;
@@ -233,19 +237,29 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             {
                 cout << "vertical but not in center " << endl;
                 // target_pose.pose.position.x = current_pos_x_ + best_dist_from_origin; // todo. remove absolute from dist_from_origin_
-                target_pose.pose.position.x = target_point_in_world_frame_[0];  
-                target_pose.pose.position.y = target_point_in_world_frame_[1]; // Y is opposite in sign check
+                if (midpoint_last_detected_line.y > 0 )
+                {
+                    target_pose.pose.position.y = current_pos_y_ - 0.2;
+                    cout << "flying left " << endl;
+                }
+                else
+                {
+                    target_pose.pose.position.y = current_pos_y_ + 0.2;
+                    cout << "flying right " << endl;
+                }
+            
                 target_pose.pose.position.z = current_pos_z_; 
-
+                target_pose.pose.position.x = current_pos_x_;  
                 roll_target = 0.0;
                 pitch_target = 0.0;
 
                 // We don't care which way the quadcopter is facing, for now. 
                 // Target yaw depends on the current alignment as it's already nearly perpendicular
-                if(current_yaw_ > 0)
-                    yaw_target = M_PI/2;
-                else
-                    yaw_target = -M_PI/2;
+                // if(current_yaw_ > 0)
+                //     yaw_target = M_PI/2;
+                // else
+                //     yaw_target = -M_PI/2;
+                yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
 
                 quat_target.setRPY(roll_target, pitch_target, yaw_target);
 
@@ -257,17 +271,17 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
         else // if wire is not perpendicular, hold current position and yaw to align with wire 
         { 
             cout << " not vertical " << endl;
-            target_pose.pose.position.x = current_pos_x_; // todo. remove absolute from dist_from_origin_
-            target_pose.pose.position.y = current_pos_y_;
-            target_pose.pose.position.z = current_pos_z_; 
+            target_pose.pose.position.x = pos_x_last_detected_line_; // todo. remove absolute from dist_from_origin_
+            target_pose.pose.position.y = pos_y_last_detected_line_;
+            target_pose.pose.position.z = pos_z_last_detected_line_; 
 
             roll_target = 0.0;
             pitch_target = 0.0;
             yaw_target;
-            if(current_yaw_ > 0)
-            {
-                yaw_target = current_yaw_ + (90 - best_angle); // spin too much? 
-            }
+            // if(current_yaw_ > 0)
+            // {
+                yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
+            // }
             // else
             // {
             //     yaw_target = -M_PI/2;
@@ -294,26 +308,22 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             // For the extrinsic part, we need to use tf to transform to world coordinates 
 
             cout << "flag_last_detected_line_== 1 " << endl; 
-            target_pose.pose.position.x = target_point_in_world_frame_[0]; // todo. remove absolute from dist_from_origin_
-            target_pose.pose.position.y = target_point_in_world_frame_[1];
+            target_pose.pose.position.x = current_pos_x_; // todo. remove absolute from dist_from_origin_
+            target_pose.pose.position.y = current_pos_y_;
             target_pose.pose.position.z = current_pos_z_; 
             roll_target = 0.0;
             pitch_target = 0.0;
-            yaw_target = current_yaw_*180/M_PI; // doesn't matter
+            yaw_target = current_yaw_*M_PI/180; // doesn't matter
             quat_target.setRPY(roll_target, pitch_target, yaw_target);
             tf::quaternionTFToMsg(quat_target, target_pose.pose.orientation);
         }
 
         else // the quad is flying around in the beginning and no target should be specified 
         {
-            target_pose.pose.position.x = 15; // todo. remove absolute from dist_from_origin_
-            target_pose.pose.position.y = 1;
-            target_pose.pose.position.z = 2; 
-            roll_target = 0.0;
-            pitch_target = 0.0;
-            yaw_target = 0.0; // doesn't matter
-            // quat_target.setRPY(roll_target, pitch_target, yaw_target);
-            // tf::quaternionTFToMsg(quat_target, target_pose.pose.orientation);
+            target_pose.pose.position.x = 30; // todo. remove absolute from dist_from_origin_
+            target_pose.pose.position.y = 0;
+            target_pose.pose.position.z = 10; 
+
             target_pose.pose.orientation.x = 0;
             target_pose.pose.orientation.y = 0;
             target_pose.pose.orientation.z = 1;
@@ -327,7 +337,7 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
     cout << "current_pos_z_" << current_pos_z_ << ", target_pose.pose.position.z " << target_pose.pose.position.z << endl << endl; 
     cout << "current_roll_" << current_roll_ << ", roll_target " << roll_target*180/M_PI << endl;
     cout << "current_pitch_" << current_pitch_ << ", pitch_target " << pitch_target*180/M_PI << endl;
-    cout << "current_yaw_" << current_yaw_ << ", yaw_target " << yaw_target*180/M_PI << endl;
+    cout << "current_yaw_" << current_yaw_ << ", yaw_target " << yaw_target*180/M_PI << endl << endl << endl<< endl;
 
     imshow(hough_prob_window, hough_prob_result);
     cv::waitKey(1); 

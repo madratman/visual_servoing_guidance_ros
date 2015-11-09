@@ -28,6 +28,8 @@ class Control_quadcopter
 	void image_callback(const sensor_msgs::ImageConstPtr& image_message, const sensor_msgs::CameraInfoConstPtr& cam_info);
 	void quadcopter_state_callback(const geometry_msgs::PoseStamped pose_msg);
 	// void quadcopter_state_callback(const gazebo::ModelState::ConstPtr& msg);
+	
+	const int FRAMES_PER_SECOND_ = 30;
 
 	private:
 		// ROS publishers and subscribers
@@ -54,7 +56,6 @@ class Control_quadcopter
 		// some constant params 
 		const double MINIMUM_LINE_LENGTH_ = 100;
 		const double HEIGHT_OF_WIRE_ = 50;
-		const int FRAMES_PER_SECOND_ = 30;
 
 		image_geometry::PinholeCameraModel camera_model_;
         tf::Point target_point_in_world_frame_;
