@@ -207,10 +207,11 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             
                 roll_target = 0.0;
                 pitch_target = 0.0;
-                if(current_yaw_ > 0)
-                    yaw_target = M_PI/2;
+        
+                if(best_angle > 90) 
+                    yaw_target = M_PI/180*(current_yaw_ - (90 - best_angle)); // spin too much? 
                 else
-                    yaw_target = -M_PI/2;
+                    yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
 
                 quat_target.setRPY(roll_target, pitch_target, yaw_target);
 
@@ -255,11 +256,11 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
 
                 // We don't care which way the quadcopter is facing, for now. 
                 // Target yaw depends on the current alignment as it's already nearly perpendicular
-                // if(current_yaw_ > 0)
-                //     yaw_target = M_PI/2;
-                // else
-                //     yaw_target = -M_PI/2;
-                yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
+         
+                if(best_angle > 90) 
+                    yaw_target = M_PI/180*(current_yaw_ - (90 - best_angle)); // spin too much? 
+                else
+                    yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
 
                 quat_target.setRPY(roll_target, pitch_target, yaw_target);
 
@@ -277,15 +278,11 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
 
             roll_target = 0.0;
             pitch_target = 0.0;
-            yaw_target;
-            // if(current_yaw_ > 0)
-            // {
+         
+            if(best_angle > 90) 
+                yaw_target = M_PI/180*(current_yaw_ - (90 - best_angle)); // spin too much? 
+            else
                 yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
-            // }
-            // else
-            // {
-            //     yaw_target = -M_PI/2;
-            // }
 
             quat_target.setRPY(roll_target, pitch_target, yaw_target);
 
@@ -342,7 +339,7 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
     imshow(hough_prob_window, hough_prob_result);
     cv::waitKey(1); 
     // Publish target pose 
-	pose_publisher_.publish(target_pose);	
+    pose_publisher_.publish(target_pose);   
 }
 
 void Control_quadcopter::quadcopter_state_callback(const geometry_msgs::PoseStamped pose_msg)
