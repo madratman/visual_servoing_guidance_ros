@@ -21,9 +21,9 @@
 #include <geometry_msgs/TransformStamped.h> //IMU
 #include <geometry_msgs/Vector3Stamped.h> //velocity
 #include <sensor_msgs/LaserScan.h> //obstacle distance & ultrasonic
-#include <sensor_msgs/CameraInfo.h>
-#include "yaml-cpp/yaml.h"
-#include <fstream>
+#include <sensor_msgs/CameraInfo.h> // camera info message. Contains cam params
+#include "yaml-cpp/yaml.h" // use to parse YAML calibration file
+#include <fstream> // required to parse YAML 
 
 ros::Publisher depth_image_pub;
 ros::Publisher disparity_image_pub;
@@ -81,8 +81,8 @@ std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
 /* Hackish code to read cam params from YAML */
 // adapted from cam_info_manager and camera_calibration_parser https://github.com/ros-perception/image_common/blob/hydro-devel/camera_calibration_parsers/src/parse_yml.cpp
 
-std::string     camera_params_right = "/home/ratneshmadaan/projects/cmu_airlab/dji/madratman_ros_workspaces/ros_ws_servoing/src/Guidance-SDK-ROS/calibration_files/camera_params_right.yaml";
-std::string     camera_params_left = "/home/ratneshmadaan/projects/cmu_airlab/dji/madratman_ros_workspaces/ros_ws_servoing/src/Guidance-SDK-ROS/calibration_files/camera_params_left.yaml";
+std::string camera_params_left;
+std::string camera_params_right;
 
 static const char CAM_YML_NAME[]    = "camera_name";
 static const char WIDTH_YML_NAME[]  = "image_width";
@@ -171,6 +171,15 @@ int my_callback(int data_type, int data_len, char *content)
             left_8.header.stamp = time_in_this_loop;
             left_8.encoding     = sensor_msgs::image_encodings::MONO8;
             left_image_pub.publish(left_8.toImageMsg());
+
+            sensor_msgs::CameraInfo g_cam_info_left;
+            g_cam_info_left.header.stamp = time_in_this_loop;
+            g_cam_info_left.header.frame_id = "guidance";
+
+            read_params_from_yaml_and_fill_cam_info_msg(camera_params_left, g_cam_info_left);
+            std::cout << "read left params" << std::endl;
+            cam_info_left_pub.publish(g_cam_info_left);
+            std::cout << "published left " << std::endl;
         }
         if ( data->m_greyscale_image_right[CAMERA_ID] ){
             memcpy(g_greyscale_image_right.data, data->m_greyscale_image_right[CAMERA_ID], IMAGE_SIZE);
@@ -182,6 +191,14 @@ int my_callback(int data_type, int data_len, char *content)
             right_8.header.stamp     = time_in_this_loop;
             right_8.encoding     = sensor_msgs::image_encodings::MONO8;
             right_image_pub.publish(right_8.toImageMsg());
+
+            sensor_msgs::CameraInfo g_cam_info_right;
+            g_cam_info_right.header.stamp = time_in_this_loop;
+            g_cam_info_right.header.frame_id = "guidance";
+
+            read_params_from_yaml_and_fill_cam_info_msg(camera_params_right, g_cam_info_right);
+            std::cout << "read right params" << std::endl;
+            cam_info_right_pub.publish(g_cam_info_right);  
         }
         if ( data->m_depth_image[CAMERA_ID] ){
             memcpy(g_depth.data, data->m_depth_image[CAMERA_ID], IMAGE_SIZE * 2);
@@ -207,24 +224,6 @@ int my_callback(int data_type, int data_len, char *content)
             disparity.header.stamp     = time_in_this_loop;
             disparity.encoding     = sensor_msgs::image_encodings::TYPE_16SC3;
             depth_image_pub.publish(disparity.toImageMsg());
-        }
-        if ( data->m_greyscale_image_left[CAMERA_ID] ){
-            sensor_msgs::CameraInfo g_cam_info_right;
-            g_cam_info_right.header.stamp = time_in_this_loop;
-            g_cam_info_right.header.frame_id = "guidance";
-
-            read_params_from_yaml_and_fill_cam_info_msg(camera_params_right, g_cam_info_right);
-            std::cout << "read right params" << std::endl;
-            cam_info_right_pub.publish(g_cam_info_right);       
-
-            sensor_msgs::CameraInfo g_cam_info_left;
-            g_cam_info_left.header.stamp = time_in_this_loop;
-            g_cam_info_left.header.frame_id = "guidance";
-
-            read_params_from_yaml_and_fill_cam_info_msg(camera_params_left, g_cam_info_left);
-            std::cout << "read left params" << std::endl;
-            cam_info_left_pub.publish(g_cam_info_left);
-            std::cout << "published left " << std::endl;
         }
 
         key = waitKey(1);
@@ -336,6 +335,9 @@ int main(int argc, char** argv)
     /* initialize ros */
     ros::init(argc, argv, "GuidanceNode");
     ros::NodeHandle my_node;
+    my_node.getParam("/Gleft_param_file", camera_params_left);
+    my_node.getParam("/Gright_param_file", camera_params_right);
+    std::cout <<camera_params_left << std::endl << std::endl << std::endl;  
     depth_image_pub         = my_node.advertise<sensor_msgs::Image>("/guidance/depth_image",1);
     left_image_pub          = my_node.advertise<sensor_msgs::Image>("/guidance/left/image_raw",1);
     right_image_pub         = my_node.advertise<sensor_msgs::Image>("/guidance/right/image_raw",1);
