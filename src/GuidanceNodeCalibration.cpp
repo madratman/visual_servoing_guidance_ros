@@ -26,6 +26,7 @@
 #include <fstream>
 
 ros::Publisher depth_image_pub;
+ros::Publisher disparity_image_pub;
 ros::Publisher left_image_pub;
 ros::Publisher right_image_pub;
 ros::Publisher imu_pub;
@@ -49,6 +50,8 @@ Mat             g_greyscale_image_left(HEIGHT, WIDTH, CV_8UC1);
 Mat             g_greyscale_image_right(HEIGHT, WIDTH, CV_8UC1);
 Mat             g_depth(HEIGHT,WIDTH,CV_16SC1);
 Mat             depth8(HEIGHT, WIDTH, CV_8UC1);
+Mat             g_disparity(HEIGHT,WIDTH,CV_16S);
+Mat             disparity8(HEIGHT, WIDTH, CV_8UC1);
 
 std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
     const char* s = 0;
@@ -191,6 +194,19 @@ int my_callback(int data_type, int data_len, char *content)
             depth_16.header.stamp     = time_in_this_loop;
             depth_16.encoding     = sensor_msgs::image_encodings::MONO16;
             depth_image_pub.publish(depth_16.toImageMsg());
+        }        
+        if ( data->m_disparity_image[CAMERA_ID] ){
+            memcpy(g_disparity.data, data->m_disparity_image[CAMERA_ID], IMAGE_SIZE * 2);
+            g_disparity.convertTo(disparity8, CV_8UC1);
+            imshow("disparity", disparity8);
+            // TODO make color map
+            //publish disparity image
+            cv_bridge::CvImage disparity;
+            g_disparity.copyTo(disparity.image);
+            disparity.header.frame_id  = "guidance";
+            disparity.header.stamp     = time_in_this_loop;
+            disparity.encoding     = sensor_msgs::image_encodings::TYPE_16SC3;
+            depth_image_pub.publish(disparity.toImageMsg());
         }
         if ( data->m_greyscale_image_left[CAMERA_ID] ){
             sensor_msgs::CameraInfo g_cam_info_right;
@@ -360,6 +376,8 @@ int main(int argc, char** argv)
     RETURN_IF_ERR(err_code);
     err_code = select_depth_image(CAMERA_ID);
     RETURN_IF_ERR(err_code);
+    err_code = select_disparity_image(CAMERA_ID);
+    RETURN_IF_ERR(err_code);
     select_imu();
     select_ultrasonic();
     select_obstacle_distance();
@@ -419,6 +437,7 @@ int main(int argc, char** argv)
                 select_greyscale_image(CAMERA_ID, true);
                 select_greyscale_image(CAMERA_ID, false);
                 select_depth_image(CAMERA_ID);
+                select_disparity_image(CAMERA_ID);
 
                 err_code = start_transfer();
                 RETURN_IF_ERR(err_code);
