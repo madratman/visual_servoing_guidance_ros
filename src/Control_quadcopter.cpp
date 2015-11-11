@@ -207,11 +207,10 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             
                 roll_target = 0.0;
                 pitch_target = 0.0;
-        
-                if(best_angle > 90) 
-                    yaw_target = M_PI/180*(current_yaw_ - (best_angle - 90)); // spin too much? 
+                if(current_yaw_ > 0)
+                    yaw_target = M_PI/2;
                 else
-                    yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
+                    yaw_target = -M_PI/2;
 
                 quat_target.setRPY(roll_target, pitch_target, yaw_target);
 
@@ -256,11 +255,11 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
 
                 // We don't care which way the quadcopter is facing, for now. 
                 // Target yaw depends on the current alignment as it's already nearly perpendicular
-         
-                if(best_angle > 90) 
-                    yaw_target = M_PI/180*(current_yaw_ - (best_angle - 90)); // spin too much? 
-                else
-                    yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
+                // if(current_yaw_ > 0)
+                //     yaw_target = M_PI/2;
+                // else
+                //     yaw_target = -M_PI/2;
+                yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
 
                 quat_target.setRPY(roll_target, pitch_target, yaw_target);
 
@@ -272,17 +271,25 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
         else // if wire is not perpendicular, hold current position and yaw to align with wire 
         { 
             cout << " not vertical " << endl;
-            target_pose.pose.position.x = current_pos_x_; // todo. remove absolute from dist_from_origin_
-            target_pose.pose.position.y = current_pos_y_;
-            target_pose.pose.position.z = current_pos_z_; 
+            target_pose.pose.position.x = pos_x_last_detected_line_; // todo. remove absolute from dist_from_origin_
+            target_pose.pose.position.y = pos_y_last_detected_line_;
+            target_pose.pose.position.z = pos_z_last_detected_line_; 
 
             roll_target = 0.0;
             pitch_target = 0.0;
-         
-            if(best_angle > 90) 
-                yaw_target = M_PI/180*(current_yaw_ - (best_angle - 90)); // spin too much? 
-            else
+            yaw_target;
+            // if(current_yaw_ > 0)
+            // {
+            if (current_yaw_ < 90)
                 yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
+            else
+                yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle) -180); // spin too much? 
+
+            // }
+            // else
+            // {
+            //     yaw_target = -M_PI/2;
+            // }
 
             quat_target.setRPY(roll_target, pitch_target, yaw_target);
 
@@ -305,9 +312,9 @@ void Control_quadcopter::image_callback(const sensor_msgs::ImageConstPtr& image_
             // For the extrinsic part, we need to use tf to transform to world coordinates 
 
             cout << "flag_last_detected_line_== 1 " << endl; 
-            target_pose.pose.position.x = pos_x_last_detected_line_; // todo. remove absolute from dist_from_origin_
-            target_pose.pose.position.y = pos_y_last_detected_line_;
-            target_pose.pose.position.z = pos_z_last_detected_line_; 
+            target_pose.pose.position.x = current_pos_x_; // todo. remove absolute from dist_from_origin_
+            target_pose.pose.position.y = current_pos_y_;
+            target_pose.pose.position.z = current_pos_z_; 
             roll_target = 0.0;
             pitch_target = 0.0;
             yaw_target = current_yaw_*M_PI/180; // doesn't matter
