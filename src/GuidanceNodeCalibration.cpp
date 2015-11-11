@@ -22,6 +22,8 @@
 #include <geometry_msgs/Vector3Stamped.h> //velocity
 #include <sensor_msgs/LaserScan.h> //obstacle distance & ultrasonic
 #include <sensor_msgs/CameraInfo.h>
+#include "yaml-cpp/yaml.h"
+#include <fstream>
 
 ros::Publisher depth_image_pub;
 ros::Publisher left_image_pub;
@@ -73,6 +75,79 @@ std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
     return out << s;
 }
 
+/* Hackish code to read cam params from YAML */
+// adapted from cam_info_manager and camera_calibration_parser https://github.com/ros-perception/image_common/blob/hydro-devel/camera_calibration_parsers/src/parse_yml.cpp
+
+std::string     camera_params_right = "/home/ratneshmadaan/projects/cmu_airlab/dji/madratman_ros_workspaces/ros_ws_servoing/src/Guidance-SDK-ROS/calibration_files/camera_params_right.yaml";
+std::string     camera_params_left = "/home/ratneshmadaan/projects/cmu_airlab/dji/madratman_ros_workspaces/ros_ws_servoing/src/Guidance-SDK-ROS/calibration_files/camera_params_left.yaml";
+
+static const char CAM_YML_NAME[]    = "camera_name";
+static const char WIDTH_YML_NAME[]  = "image_width";
+static const char HEIGHT_YML_NAME[] = "image_height";
+static const char K_YML_NAME[]      = "camera_matrix";
+static const char D_YML_NAME[]      = "distortion_coefficients";
+static const char R_YML_NAME[]      = "rectification_matrix";
+static const char P_YML_NAME[]      = "projection_matrix";
+static const char DMODEL_YML_NAME[] = "distortion_model";
+
+// struct to parse camera calibration YAML 
+struct SimpleMatrix
+{
+    int rows;
+    int cols;
+    double* data;
+
+    SimpleMatrix(int rows, int cols, double* data)
+        : rows(rows), cols(cols), data(data)
+    {}
+};
+
+void transfer_SimpleMatrix_from_YML_to_ROSmsg(const YAML::Node& node, SimpleMatrix& m)
+{
+    std::cout << "transfer_SimpleMatrix_from_YML_to_ROSmsg()" << std::endl;
+    int rows, cols;
+    rows = node["rows"].as<int>();
+    cols = node["cols"].as<int>();
+    const YAML::Node& data = node["data"];
+    for (int i = 0; i < rows*cols; ++i)
+    {
+        std::cout << i << std::endl;
+        m.data[i] = data[i].as<double>();
+    }
+}
+
+void read_params_from_yaml_and_fill_cam_info_msg(std::string& file_name, sensor_msgs::CameraInfo& cam_info)
+{   
+    std::ifstream fin(file_name.c_str());
+    YAML::Node doc = YAML::Load(fin);
+
+    cam_info.width = doc[WIDTH_YML_NAME].as<int>();
+    cam_info.height = doc[HEIGHT_YML_NAME].as<int>();
+
+    SimpleMatrix K_(3, 3, &cam_info.K[0]);
+    transfer_SimpleMatrix_from_YML_to_ROSmsg(doc[K_YML_NAME], K_);
+    SimpleMatrix R_(3, 3, &cam_info.R[0]);
+    transfer_SimpleMatrix_from_YML_to_ROSmsg(doc[R_YML_NAME], R_);
+    SimpleMatrix P_(3, 4, &cam_info.P[0]);
+    transfer_SimpleMatrix_from_YML_to_ROSmsg(doc[P_YML_NAME], P_);
+
+    cam_info.distortion_model = doc[DMODEL_YML_NAME].as<std::string>();
+    std::cout << "distortion_model" << std::endl;
+
+    const YAML::Node& D_node = doc[D_YML_NAME];
+    int D_rows, D_cols;
+    D_rows = D_node["rows"].as<int>();
+    D_cols = D_node["cols"].as<int>();
+    const YAML::Node& D_data = D_node["data"];
+    cam_info.D.resize(D_rows*D_cols); 
+    std::cout << "before loop" << std::endl;
+    for (int i = 0; i < D_rows*D_cols; ++i)
+    {
+        std::cout << "inside loop" << std::endl;
+        cam_info.D[i] = D_data[i].as<float>();  
+    }
+}
+
 int my_callback(int data_type, int data_len, char *content)
 {
     g_lock.enter();
@@ -122,103 +197,18 @@ int my_callback(int data_type, int data_len, char *content)
             g_cam_info_right.header.stamp = time_in_this_loop;
             g_cam_info_right.header.frame_id = "guidance";
 
-            g_cam_info_right.K[0] = 234.904f;
-            g_cam_info_right.K[1] = 0.0f;
-            g_cam_info_right.K[2] = 164.251f;
-            g_cam_info_right.K[3] = 0.0f;
-            g_cam_info_right.K[4] = 234.904f;
-            g_cam_info_right.K[5] = 126.393f;
-            g_cam_info_right.K[6] = 0.0f;
-            g_cam_info_right.K[7] = 0.0f;
-            g_cam_info_right.K[8] = 1.0f;       
-
-            g_cam_info_right.P[0] = 234.904f;
-            g_cam_info_right.P[1] = 0.0f;
-            g_cam_info_right.P[2] = 164.251f;
-            g_cam_info_right.P[3] = 0.0f;
-            g_cam_info_right.P[4] = 0.0f;
-            g_cam_info_right.P[5] = 234.904f;
-            g_cam_info_right.P[6] = 126.393f;
-            g_cam_info_right.P[7] = 0.0f; 
-            g_cam_info_right.P[8] = 0.0f;
-            g_cam_info_right.P[9] = 0.0f;
-            g_cam_info_right.P[10] = 1.0f;
-            g_cam_info_right.P[11] = 0.0f;
-
-            g_cam_info_right.R[0] = 1.0f;
-            g_cam_info_right.R[1] = 0.0f;
-            g_cam_info_right.R[2] = 0.0f;
-
-            g_cam_info_right.R[3] = 0.0f;
-            g_cam_info_right.R[4] = 1.0f;
-            g_cam_info_right.R[5] = 0.0f;
-
-            g_cam_info_right.R[6] = 0.0f;
-            g_cam_info_right.R[7] = 0.0f;
-            g_cam_info_right.R[8] = 1.0f;
-
-            g_cam_info_right.D.resize(5);
-            g_cam_info_right.D[0] = 0.0f;
-            g_cam_info_right.D[1] = 0.0f;
-            g_cam_info_right.D[2] = 0.0f;
-            g_cam_info_right.D[3] = 0.0f;
-            g_cam_info_right.D[4] = 0.0f;
-
-            g_cam_info_right.distortion_model = "plumb_bob";
-            g_cam_info_right.width = 320;
-            g_cam_info_right.height = 240;
+            read_params_from_yaml_and_fill_cam_info_msg(camera_params_right, g_cam_info_right);
+            std::cout << "read right params" << std::endl;
             cam_info_right_pub.publish(g_cam_info_right);       
 
             sensor_msgs::CameraInfo g_cam_info_left;
             g_cam_info_left.header.stamp = time_in_this_loop;
             g_cam_info_left.header.frame_id = "guidance";
 
-            g_cam_info_left.K[0] = 234.904f;
-            g_cam_info_left.K[1] = 0.0f;
-            g_cam_info_left.K[2] = 164.251f;
-            g_cam_info_left.K[3] = 0.0f;
-            g_cam_info_left.K[4] = 234.904f;
-            g_cam_info_left.K[5] = 126.393f;
-            g_cam_info_left.K[6] = 0.0f;
-            g_cam_info_left.K[7] = 0.0f;
-            g_cam_info_left.K[8] = 1.0f;       
-
-            g_cam_info_left.P[0] = 234.904f;
-            g_cam_info_left.P[1] = 0.0f;
-            g_cam_info_left.P[2] = 164.251f;
-            g_cam_info_left.P[3] = 15.0382f;
-            g_cam_info_left.P[4] = 0.0f;
-            g_cam_info_left.P[5] = 234.904f;
-            g_cam_info_left.P[6] = 126.393f;
-            g_cam_info_left.P[7] = 0.0f;
-            g_cam_info_left.P[8] = 0.0f;
-            g_cam_info_left.P[9] = 0.0f;
-            g_cam_info_left.P[10] = 1.0f;
-            g_cam_info_left.P[11] = 0.0f;
-
-            g_cam_info_left.R[0] = 1.0f;
-            g_cam_info_left.R[1] = 0.0f;
-            g_cam_info_left.R[2] = 0.0f;
-
-            g_cam_info_left.R[3] = 0.0f;
-            g_cam_info_left.R[4] = 1.0f;
-            g_cam_info_left.R[5] = 0.0f;
-
-            g_cam_info_left.R[6] = 0.0f;
-            g_cam_info_left.R[7] = 0.0f;
-            g_cam_info_left.R[8] = 1.0f;
-
-            g_cam_info_left.D.resize(5);
-            g_cam_info_left.D[0] = 0.0f;
-            g_cam_info_left.D[1] = 0.0f;
-            g_cam_info_left.D[2] = 0.0f;
-            g_cam_info_left.D[3] = 0.0f;
-            g_cam_info_left.D[4] = 0.0f;
-
-            g_cam_info_left.distortion_model = "plumb_bob";
-            g_cam_info_left.width = 320;
-            g_cam_info_left.height = 240;
+            read_params_from_yaml_and_fill_cam_info_msg(camera_params_left, g_cam_info_left);
+            std::cout << "read left params" << std::endl;
             cam_info_left_pub.publish(g_cam_info_left);
+            std::cout << "published left " << std::endl;
         }
 
         key = waitKey(1);

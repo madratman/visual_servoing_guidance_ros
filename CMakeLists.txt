@@ -75,7 +75,7 @@ add_executable(sim_node ${PROJECT_SOURCE_DIR}/src/sim_node.cpp)
 
 target_link_libraries(GuidanceNode DJI_guidance usb-1.0 ${catkin_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(GuidanceNodeTest ${catkin_LIBRARIES} ${OpenCV_LIBS})
-target_link_libraries(GuidanceNodeCalibration DJI_guidance usb-1.0 ${catkin_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(GuidanceNodeCalibration DJI_guidance usb-1.0 yaml-cpp ${catkin_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(Control_quadcopter ${catkin_LIBRARIES} ${OpenCV_LIBS} )
 target_link_libraries(sim_node ${catkin_LIBRARIES} ${OpenCV_LIBS} Control_quadcopter Line_detector)
 # target_link_libraries(PID_node ${catkin_LIBRARIES} ${OpenCV_LIBS})
