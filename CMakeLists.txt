@@ -10,13 +10,18 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   image_geometry
   tf
+  spektrum
+  ca_common
+  nav_msgs
+  math_utils
+  dji_sdk
 )
 find_package(OpenCV REQUIRED)
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES PID_controller Line_detector
-  CATKIN_DEPENDS roscpp
+  CATKIN_DEPENDS roscpp math_utils
   DEPENDS system_lib
 )
 
@@ -36,6 +41,10 @@ add_library(Line_detector
 
 add_library(Control_quadcopter
   src/Control_quadcopter.cpp
+ )
+
+add_library(DJI_servoing
+  src/DJI_servoing.cpp
  )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
@@ -71,6 +80,7 @@ add_executable(GuidanceNode ${PROJECT_SOURCE_DIR}/src/GuidanceNode.cpp ${PROJECT
 add_executable(GuidanceNodeTest ${PROJECT_SOURCE_DIR}/src/GuidanceNodeTest.cpp)
 add_executable(GuidanceNodeCalibration ${PROJECT_SOURCE_DIR}/src/GuidanceNodeCalibration.cpp ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp)
 add_executable(sim_node ${PROJECT_SOURCE_DIR}/src/sim_node.cpp)
+add_executable(real_life_node ${PROJECT_SOURCE_DIR}/src/real_life_node.cpp)
 # add_executable(PID_node ${PROJECT_SOURCE_DIR}/src/PID_node.cpp)
 
 target_link_libraries(GuidanceNode DJI_guidance usb-1.0 ${catkin_LIBRARIES} ${OpenCV_LIBS})
@@ -78,4 +88,6 @@ target_link_libraries(GuidanceNodeTest ${catkin_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(GuidanceNodeCalibration DJI_guidance usb-1.0 yaml-cpp ${catkin_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(Control_quadcopter ${catkin_LIBRARIES} ${OpenCV_LIBS} )
 target_link_libraries(sim_node ${catkin_LIBRARIES} ${OpenCV_LIBS} Control_quadcopter Line_detector)
+target_link_libraries(DJI_servoing ${catkin_LIBRARIES} ${OpenCV_LIBS} )
+target_link_libraries(real_life_node ${catkin_LIBRARIES} ${OpenCV_LIBS} DJI_servoing Line_detector)
 # target_link_libraries(PID_node ${catkin_LIBRARIES} ${OpenCV_LIBS})

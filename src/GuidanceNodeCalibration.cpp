@@ -26,14 +26,13 @@
 #include <fstream> // required to parse YAML 
 
 ros::Publisher depth_image_pub;
-ros::Publisher disparity_image_pub;
 ros::Publisher left_image_pub;
 ros::Publisher right_image_pub;
 ros::Publisher imu_pub;
 ros::Publisher obstacle_distance_pub;
 ros::Publisher velocity_pub;
 ros::Publisher ultrasonic_pub;
-ros::Publisher cam_info_left_pub;
+ros::Publisher cam_info_left_pub; // camera info msg publishers
 ros::Publisher cam_info_right_pub;
 
 using namespace cv;
@@ -50,8 +49,6 @@ Mat             g_greyscale_image_left(HEIGHT, WIDTH, CV_8UC1);
 Mat             g_greyscale_image_right(HEIGHT, WIDTH, CV_8UC1);
 Mat             g_depth(HEIGHT,WIDTH,CV_16SC1);
 Mat             depth8(HEIGHT, WIDTH, CV_8UC1);
-Mat             g_disparity(HEIGHT,WIDTH,CV_16S);
-Mat             disparity8(HEIGHT, WIDTH, CV_8UC1);
 
 std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
     const char* s = 0;
@@ -78,7 +75,8 @@ std::ostream& operator<<(std::ostream& out, const e_sdk_err_code value){
     return out << s;
 }
 
-/* Hackish code to read cam params from YAML */
+// A nice TODO will be to wrap the driver using the ROS standard cam_info_manager. 
+// Hackish code to read cam params from YAML 
 // adapted from cam_info_manager and camera_calibration_parser https://github.com/ros-perception/image_common/blob/hydro-devel/camera_calibration_parsers/src/parse_yml.cpp
 
 std::string camera_params_left;
@@ -107,14 +105,12 @@ struct SimpleMatrix
 
 void transfer_SimpleMatrix_from_YML_to_ROSmsg(const YAML::Node& node, SimpleMatrix& m)
 {
-    std::cout << "transfer_SimpleMatrix_from_YML_to_ROSmsg()" << std::endl;
     int rows, cols;
     rows = node["rows"].as<int>();
     cols = node["cols"].as<int>();
     const YAML::Node& data = node["data"];
     for (int i = 0; i < rows*cols; ++i)
     {
-        std::cout << i << std::endl;
         m.data[i] = data[i].as<double>();
     }
 }
@@ -135,7 +131,6 @@ void read_params_from_yaml_and_fill_cam_info_msg(std::string& file_name, sensor_
     transfer_SimpleMatrix_from_YML_to_ROSmsg(doc[P_YML_NAME], P_);
 
     cam_info.distortion_model = doc[DMODEL_YML_NAME].as<std::string>();
-    std::cout << "distortion_model" << std::endl;
 
     const YAML::Node& D_node = doc[D_YML_NAME];
     int D_rows, D_cols;
@@ -143,10 +138,8 @@ void read_params_from_yaml_and_fill_cam_info_msg(std::string& file_name, sensor_
     D_cols = D_node["cols"].as<int>();
     const YAML::Node& D_data = D_node["data"];
     cam_info.D.resize(D_rows*D_cols); 
-    std::cout << "before loop" << std::endl;
     for (int i = 0; i < D_rows*D_cols; ++i)
     {
-        std::cout << "inside loop" << std::endl;
         cam_info.D[i] = D_data[i].as<float>();  
     }
 }
@@ -177,9 +170,7 @@ int my_callback(int data_type, int data_len, char *content)
             g_cam_info_left.header.frame_id = "guidance";
 
             read_params_from_yaml_and_fill_cam_info_msg(camera_params_left, g_cam_info_left);
-            std::cout << "read left params" << std::endl;
             cam_info_left_pub.publish(g_cam_info_left);
-            std::cout << "published left " << std::endl;
         }
         if ( data->m_greyscale_image_right[CAMERA_ID] ){
             memcpy(g_greyscale_image_right.data, data->m_greyscale_image_right[CAMERA_ID], IMAGE_SIZE);
@@ -197,8 +188,7 @@ int my_callback(int data_type, int data_len, char *content)
             g_cam_info_right.header.frame_id = "guidance";
 
             read_params_from_yaml_and_fill_cam_info_msg(camera_params_right, g_cam_info_right);
-            std::cout << "read right params" << std::endl;
-            cam_info_right_pub.publish(g_cam_info_right);  
+            cam_info_right_pub.publish(g_cam_info_right);
         }
         if ( data->m_depth_image[CAMERA_ID] ){
             memcpy(g_depth.data, data->m_depth_image[CAMERA_ID], IMAGE_SIZE * 2);
@@ -208,24 +198,11 @@ int my_callback(int data_type, int data_len, char *content)
             cv_bridge::CvImage depth_16;
             g_depth.copyTo(depth_16.image);
             depth_16.header.frame_id  = "guidance";
-            depth_16.header.stamp     = time_in_this_loop;
+            depth_16.header.stamp     = ros::Time::now();
             depth_16.encoding     = sensor_msgs::image_encodings::MONO16;
             depth_image_pub.publish(depth_16.toImageMsg());
-        }        
-        if ( data->m_disparity_image[CAMERA_ID] ){
-            memcpy(g_disparity.data, data->m_disparity_image[CAMERA_ID], IMAGE_SIZE * 2);
-            g_disparity.convertTo(disparity8, CV_8UC1);
-            imshow("disparity", disparity8);
-            // TODO make color map
-            //publish disparity image
-            cv_bridge::CvImage disparity;
-            g_disparity.copyTo(disparity.image);
-            disparity.header.frame_id  = "guidance";
-            disparity.header.stamp     = time_in_this_loop;
-            disparity.encoding     = sensor_msgs::image_encodings::TYPE_16SC3;
-            depth_image_pub.publish(disparity.toImageMsg());
         }
-
+        
         key = waitKey(1);
     }
 
@@ -335,9 +312,8 @@ int main(int argc, char** argv)
     /* initialize ros */
     ros::init(argc, argv, "GuidanceNode");
     ros::NodeHandle my_node;
-    my_node.getParam("/Gleft_param_file", camera_params_left);
-    my_node.getParam("/Gright_param_file", camera_params_right);
-    std::cout <<camera_params_left << std::endl << std::endl << std::endl;  
+    my_node.getParam("/left_param_file", camera_params_left);
+    my_node.getParam("/right_param_file", camera_params_right);
     depth_image_pub         = my_node.advertise<sensor_msgs::Image>("/guidance/depth_image",1);
     left_image_pub          = my_node.advertise<sensor_msgs::Image>("/guidance/left/image_raw",1);
     right_image_pub         = my_node.advertise<sensor_msgs::Image>("/guidance/right/image_raw",1);
@@ -377,8 +353,6 @@ int main(int argc, char** argv)
     err_code = select_greyscale_image(CAMERA_ID, false);
     RETURN_IF_ERR(err_code);
     err_code = select_depth_image(CAMERA_ID);
-    RETURN_IF_ERR(err_code);
-    err_code = select_disparity_image(CAMERA_ID);
     RETURN_IF_ERR(err_code);
     select_imu();
     select_ultrasonic();
@@ -439,7 +413,6 @@ int main(int argc, char** argv)
                 select_greyscale_image(CAMERA_ID, true);
                 select_greyscale_image(CAMERA_ID, false);
                 select_depth_image(CAMERA_ID);
-                select_disparity_image(CAMERA_ID);
 
                 err_code = start_transfer();
                 RETURN_IF_ERR(err_code);
