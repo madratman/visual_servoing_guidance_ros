@@ -37,51 +37,62 @@ void DJI_servoing::getPose_callback(const nav_msgs::OdometryConstPtr &msg)
 
 void DJI_servoing::getStart_callback(const spektrum::MikrokopterStatus::ConstPtr &msg)
 {
-    if(msg->isAutonomous && started_ == false) {
-        if(!gotPose_) {
+    if(msg->isAutonomous && started_ == false) 
+    {
+        if(!gotPose_) 
+        {
             ROS_ERROR_STREAM("never got pose!");
             return;
         }
 
 //        if ((msg->header.stamp - startOdom_.header.stamp).toSec() > 0.5) {
-        if ((ros::Time::now() - startOdom_.header.stamp).toSec() > 0.5) {
+        if ((ros::Time::now() - startOdom_.header.stamp).toSec() > 0.5) 
+        {
             ROS_ERROR_STREAM("odometry msg too old!"<<(msg->header.stamp - startOdom_.header.stamp).toSec());
             return;
         }
-        hoverAtXYZ_=currentXYZ_;
-        hoverHeading_=last_heading_;
+
+        hoverAtXYZ_ = currentXYZ_;
+        hoverHeading_ = last_heading_;
 
         firstTime_ = true;
         started_ = true;
         ROS_WARN_STREAM("Traj gen starts at  hold hover!" <<hoverAtXYZ_);
-
-    } else if(!msg->isAutonomous) {
+    } 
+    else if(!msg->isAutonomous) 
+    {
         started_ = false;
     }
 }
 
 void DJI_servoing::getStartDji_callback(const dji_sdk::RCChannels::ConstPtr &msg)
 {
-    if(msg->mode > 4000.0 && started_ == false && !alreadyAuto_) {
-        if(!gotPose_) {
+    if(msg->mode > 4000.0 && started_ == false && !alreadyAuto_) 
+    {
+        if(!gotPose_) 
+        {
             ROS_ERROR_STREAM("never got pose!");
             return;
         }
 
 //        if ((msg->header.stamp - startOdom_.header.stamp).toSec() > 0.5) {
-        if ((ros::Time::now() - startOdom_.header.stamp).toSec() > 0.5) {
+        if ((ros::Time::now() - startOdom_.header.stamp).toSec() > 0.5) 
+        {
             ROS_ERROR_STREAM("odometry msg too old!"<<(msg->header.stamp - startOdom_.header.stamp).toSec());
             return;
         }
-        hoverAtXYZ_=currentXYZ_;
-        hoverHeading_=last_heading_;
+        
+        hoverAtXYZ_ = currentXYZ_;
+        hoverHeading_ = last_heading_;
 
         firstTime_ = true;
         started_ = true;
         alreadyAuto_ = true;
         ROS_WARN_STREAM("Traj gen starts at  hold hover!" <<hoverAtXYZ_);
 
-    } else if(!(msg->mode > 4000.0)) {
+    } 
+    else if(!(msg->mode > 4000.0)) 
+    {
         started_ = false;
         alreadyAuto_ = false;
     }
@@ -154,155 +165,157 @@ void DJI_servoing::image_callback(const sensor_msgs::ImageConstPtr& image_messag
 
     // Future/as needs be : (Modify the Line_detector class to) return only the unique lines Filter out duplicates : combine fragment lines + multiple parallel lines. 
 
-    std::vector<State, Eigen::aligned_allocator<Vector3D> > sl;
-    ca_common::Trajectory t;
-    t.header.seq=1;
-    CA::State c;
+    std::vector<State, Eigen::aligned_allocator<Vector3D> > sl; // TODO member variable
+    ca_common::Trajectory t; // TODO mmember variable?
+    t.header.seq = 1; 
+    CA::State c; // TODO member variable?
 
-    if(firstTime_==1)
+    if(firstTime_)
     {
-        sl.clear();
+        sl.clear(); // TODO outside?
 
-    // Now the main servoing block method starts
-    if(opencv_lines.size() != 0) // Pay attention to the loop condition above and the corresponding else block. 
-    {  
-        // Find the best line
-        line_detector_ptr_ = new Line_detector(opencv_lines, image_original_width, image_original_height);
-        best_line_opencv = line_detector_ptr_->remove_duplicates();
-        Line best_line_struct = line_detector_ptr_->return_best_line();
+        // Now the main servoing block method starts
+        if(opencv_lines.size() != 0) // Pay attention to the loop condition and the corresponding else block. 
+        {  
+            // Find the best line
+            line_detector_ptr_ = new Line_detector(opencv_lines, image_original_width, image_original_height);
+            best_line_opencv = line_detector_ptr_->remove_duplicates();
+            Line best_line_struct = line_detector_ptr_->return_best_line();
 
-        // Plot the line, endpoints, center of image
-        line(hough_prob_result, Point(best_line_opencv[0], best_line_opencv[1]), Point(best_line_opencv[2], best_line_opencv[3]), Scalar(255,0,0), 1, CV_AA);
-        circle(hough_prob_result, Point(best_line_opencv[0],best_line_opencv[1]), 10, Scalar(0,0,255), 1, 8); // plots red circle at first end point
-        circle(hough_prob_result, Point(best_line_opencv[2],best_line_opencv[3]), 10, Scalar(0,255,0), 1, 8); // plots green circle at second end point
-        circle(hough_prob_result, Point(image_original_width/2, image_original_height/2), 10, Scalar(255,255,255), 1, 8); // plots white circle at center of image
+            // Plot the line, endpoints, center of image
+            line(hough_prob_result, Point(best_line_opencv[0], best_line_opencv[1]), Point(best_line_opencv[2], best_line_opencv[3]), Scalar(255,0,0), 1, CV_AA);
+            circle(hough_prob_result, Point(best_line_opencv[0],best_line_opencv[1]), 10, Scalar(0,0,255), 1, 8); // plots red circle at first end point
+            circle(hough_prob_result, Point(best_line_opencv[2],best_line_opencv[3]), 10, Scalar(0,255,0), 1, 8); // plots green circle at second end point
+            circle(hough_prob_result, Point(image_original_width/2, image_original_height/2), 10, Scalar(255,255,255), 1, 8); // plots white circle at center of image
 
-        // Find the various line's parameters to calculate the next pose target
-        double best_angle = best_line_struct.angle_; // Note range is [0, pi] due to symmetric nature of problem. Check Line_detector.h
-        double best_dist_from_origin = best_line_struct.dist_from_origin_;
-        double best_line_length = best_line_struct.length_;
-        cout << "best_angle " << best_angle << endl;
-        cout << "difference " << abs(90 - best_angle) << endl;
+            // Find the various line's parameters to calculate the next pose target
+            double best_angle = best_line_struct.angle_; // Note range is [0, pi] due to symmetric nature of problem. Check Line_detector.h
+            double best_dist_from_origin = best_line_struct.dist_from_origin_;
+            double best_line_length = best_line_struct.length_;
+            cout << "best_angle " << best_angle << endl;
+            cout << "difference " << abs(90 - best_angle) << endl;
 
-        cv::Point2d midpoint_last_detected_line;
-        // If the line length is greater than MINIMUM_LINE_LENGTH_, we save it as the last decent detected line and also update the corresponding pose 
-        if(best_line_struct.length_ > MINIMUM_LINE_LENGTH_)
-        {
-            last_detected_line_ = best_line_struct; // member of Control_quadcopter, and not line_detector class
-            flag_last_detected_line_ = 1; // This flag is useful for the initial flying part, when we don't have any lines detected previously.
-
-            // for returning to that pose 
-            lastGoodXYZ_ = currentXYZ_;            
-        }
-
-        // add condition on line length 
-
-        // Check if the wire is (almost) vertical in the image. Else make it vertical
-        if(abs(90 - best_angle) < 5) // TOCHECK. Angle ranges and sign bugs
-        {   
-            // Check if wire is in the center of the image. Else move left/right to bring it to center
-            if(abs(best_dist_from_origin) < 10) // TOCHECK 
+            cv::Point2d midpoint_last_detected_line;
+            // If the line length is greater than MINIMUM_LINE_LENGTH_, we save it as the last decent detected line and also update the corresponding pose 
+            
+            // TODO this 
+            if(best_line_struct.length_ > MINIMUM_LINE_LENGTH_)
             {
-                cout << "vertical and center " << endl;
-                // c.pose.position_m[0] =  hoverAtXYZ[0];
-                // c.pose.position_m[1] =  hoverAtXYZ[1];
+                last_detected_line_ = best_line_struct; // member of Control_quadcopter, and not line_detector class
+                flag_last_detected_line_ = 1; // This flag is useful for the initial flying part, when we don't have any lines detected previously.
 
-                c.pose.orientation_rad[2] = last_heading_;
-
-                c.rates.velocity_mps[0] = 0;
-                c.rates.velocity_mps[1] = 0;
-
-                // Check how far is the wire. If high enough, stop. Else move up by 10 cm. 
-                if(HEIGHT_OF_WIRE_ - currentXYZ_[2] < 20)
-                {
-                    cout << "HEIGHT_OF_WIRE_ - currentXYZ_[2]= " << HEIGHT_OF_WIRE_ - currentXYZ_[2] << endl;
-                    cout << "staying here " << endl;
-                    c.rates.velocity_mps[2] = 0;
-                    // c.pose.position_m[2] =  hoverAtXYZ[2];
-                } 
-
-                else
-                {
-                    cout << "HEIGHT_OF_WIRE_ - currentXYZ_[2]= " << HEIGHT_OF_WIRE_ - currentXYZ_[2] << endl;
-                    cout << "flying up " << endl;
-                    c.rates.velocity_mps[2] = speed_;
-                    // c.pose.position_m[2] =  hoverAtXYZ[2] + 0.1;
-                }  
+                // for returning to that pose 
+                lastGoodXYZ_ = currentXYZ_;            
             }
 
-            else // Move horizontally such that the wire is in the center of line
-            {
-                cout << "vertical but not in center " << endl;
-                // target_pose.pose.position.x = current_pos_x_ + best_dist_from_origin; // todo. remove absolute from dist_from_origin_
-                if (midpoint_last_detected_line.y > 0 )
+            // add condition on line length 
+
+            // Check if the wire is (almost) vertical in the image. Else make it vertical
+            if(abs(90 - best_angle) < 5) // TOCHECK. Angle ranges and sign bugs
+            {   
+                // Check if wire is in the center of the image. Else move left/right to bring it to center
+                if(abs(best_dist_from_origin) < 10) // TOCHECK 
                 {
-                    cout << "flying left " << endl;
-                    // c.pose.position_m[0] = hoverAtXYZ[0];
-                    // c.pose.position_m[1] =  -0.1 + hoverAtXYZ[1];
+                    cout << "vertical and center " << endl;
+                    // c.pose.position_m[0] =  hoverAtXYZ[0];
+                    // c.pose.position_m[1] =  hoverAtXYZ[1];
+
+                    c.pose.orientation_rad[2] = last_heading_;
+
+                    c.rates.velocity_mps[0] = 0;
+                    c.rates.velocity_mps[1] = 0;
+
+                    // Check how far is the wire. If high enough, stop. Else move up by 10 cm. 
+                    if(HEIGHT_OF_WIRE_ - currentXYZ_[2] < 20)
+                    {
+                        cout << "HEIGHT_OF_WIRE_ - currentXYZ_[2]= " << HEIGHT_OF_WIRE_ - currentXYZ_[2] << endl;
+                        cout << "staying here " << endl;
+                        c.rates.velocity_mps[2] = 0;
+                        // c.pose.position_m[2] =  hoverAtXYZ[2];
+                    } 
+
+                    else
+                    {
+                        cout << "HEIGHT_OF_WIRE_ - currentXYZ_[2]= " << HEIGHT_OF_WIRE_ - currentXYZ_[2] << endl;
+                        cout << "flying up " << endl;
+                        c.rates.velocity_mps[2] = speed_;
+                        // c.pose.position_m[2] =  hoverAtXYZ[2] + 0.1;
+                    }  
+                }
+
+                else // Move horizontally such that the wire is in the center of line
+                {
+                    cout << "vertical but not in center " << endl;
+                    // target_pose.pose.position.x = current_pos_x_ + best_dist_from_origin; // todo. remove absolute from dist_from_origin_
+                    if (midpoint_last_detected_line.y > 0 )
+                    {
+                        cout << "flying left " << endl;
+                        // c.pose.position_m[0] = hoverAtXYZ[0];
+                        // c.pose.position_m[1] =  -0.1 + hoverAtXYZ[1];
+                        
+                        c.rates.velocity_mps[0] = speed_ * (best_dist_from_origin/WIDTH*2) * std::cos(last_heading_); //best_dist_from_origin/WIDTH*2 -> [0,1]
+                        c.rates.velocity_mps[1] = -speed_ * (best_dist_from_origin/WIDTH*2) * std::cos(last_heading_);
+                    }
+
+                    else
+                    {
+                        cout << "flying right " << endl;
+                        // c.pose.position_m[1] =  0.1 + hoverAtXYZ[1];
+
+                        c.rates.velocity_mps[0] = -speed_ * (best_dist_from_origin/WIDTH*2) * std::cos(last_heading_);
+                        c.rates.velocity_mps[1] = speed_ * (best_dist_from_origin/WIDTH*2) * std::cos(last_heading_);
+                    }
                     
-                    c.rates.velocity_mps[0] = speed_ * std::cos(last_heading_);
-                    c.rates.velocity_mps[1] = -speed_ * std::cos(last_heading_);
-                }
+                    // c.pose.position_m[2] = hoverAtXYZ[2];
 
+                    c.pose.orientation_rad[2] = last_heading_;
+
+                    c.rates.velocity_mps[2] = 0;
+                }
+            }
+
+            else // if wire is not perpendicular, hold current position and yaw to align with wire 
+            { 
+                cout << " not vertical " << endl;
+
+    /*            if (current_yaw_ < 90)
+                    yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
                 else
-                {
-                    cout << "flying right " << endl;
-                    // c.pose.position_m[1] =  0.1 + hoverAtXYZ[1];
+                    yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle) -180); // spin too much? 
+    */            
+                c.pose.orientation_rad[2] = last_heading_ - (best_angle*M_PI/180);
+                c.rates.velocity_mps[0] = c.rates.velocity_mps[1] = c.rates.velocity_mps[2] = 0;
 
-                    c.rates.velocity_mps[0] = -speed_ * std::cos(last_heading_);
-                    c.rates.velocity_mps[1] = speed_ * std::cos(last_heading_);
-                }
-                
-                // c.pose.position_m[2] = hoverAtXYZ[2];
+            }
+        }
 
-                c.pose.orientation_rad[2] = last_heading_;
+        else // No lines were found. Now, we fly towards the last decent detected line, or else we don't do anything () 
+        {
+            cout << "zero lines detected. " << endl;
+            if(flag_last_detected_line_)
+            {
+                // If no line is found and flag_last_detected_line_ == 1, we need to fly back to the pose corresponding to the time when a line of decent length was detected last
+                // Or else, we could just fly to the point corresponding to the midpoint of the last line detected - in world coordinates
+                // The latter might be a bit jarring to the previous control strategy
 
+                // Either way, we need to find the 3D X, Y of the point. Z we know via a stereo cam in real life, or here in simulation we already know it
+                // We use the image_geometry and tf packages for the same. Image geometry does that for us using the intrinsic matrix
+                // For the extrinsic part, we need to use tf to transform to world coordinates 
+
+                c.pose.position_m[0] = lastGoodXYZ_[0];
+                c.pose.position_m[1] = lastGoodXYZ_[1];
+                c.pose.position_m[2] = lastGoodXYZ_[2];
+
+                cout << "flag_last_detected_line_== 1 " << endl; 
+            }   
+            else // the quad is flying around in the beginning and no target should be specified 
+            {
+                c.rates.velocity_mps[0] = 0;
+                c.rates.velocity_mps[1] = speed_;
                 c.rates.velocity_mps[2] = 0;
             }
+            // publish back the current pose. So as to make the quad stay at its place
         }
-
-        else // if wire is not perpendicular, hold current position and yaw to align with wire 
-        { 
-            cout << " not vertical " << endl;
-
-/*            if (current_yaw_ < 90)
-                yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle)); // spin too much? 
-            else
-                yaw_target = M_PI/180*(current_yaw_ + (90 - best_angle) -180); // spin too much? 
-*/            
-            c.pose.orientation_rad[2] = last_heading_ - (best_angle*M_PI/180);
-            c.rates.velocity_mps[0] = c.rates.velocity_mps[1] = c.rates.velocity_mps[2] = 0;
-
-        }
-    }
-
-    else // No lines were found. Now, we fly towards the last decent detected line, or else we don't do anything () 
-    {
-        cout << "zero lines detected. " << endl;
-        if(flag_last_detected_line_)
-        {
-            // If no line is found and flag_last_detected_line_ == 1, we need to fly back to the pose corresponding to the time when a line of decent length was detected last
-            // Or else, we could just fly to the point corresponding to the midpoint of the last line detected - in world coordinates
-            // The latter might be a bit jarring to the previous control strategy
-
-            // Either way, we need to find the 3D X, Y of the point. Z we know via a stereo cam in real life, or here in simulation we already know it
-            // We use the image_geometry and tf packages for the same. Image geometry does that for us using the intrinsic matrix
-            // For the extrinsic part, we need to use tf to transform to world coordinates 
-
-            c.pose.position_m[0] = lastGoodXYZ_[0];
-            c.pose.position_m[1] = lastGoodXYZ_[1];
-            c.pose.position_m[2] = lastGoodXYZ_[2];
-
-            cout << "flag_last_detected_line_== 1 " << endl; 
-        }   
-        else // the quad is flying around in the beginning and no target should be specified 
-        {
-            c.rates.velocity_mps[0] = 0;
-            c.rates.velocity_mps[1] = speed_;
-            c.rates.velocity_mps[2] = 0;
-        }
-        // publish back the current pose. So as to make the quad stay at its place
-    }
     }
 
 

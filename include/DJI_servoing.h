@@ -35,7 +35,7 @@ class DJI_servoing
 
 			node_handle_.param("/trajectory_gen/loopRate", loopRate_, 4.0);
 			node_handle_.param("/trajectory_gen/nodeCount", nodeCount_, 20);
-			node_handle_.param("/trajectory_gen/speed", speed_, 1.0);
+			node_handle_.param("/trajectory_gen/speed", speed_, 0.1);
 			node_handle_.param("/trajectory_gen/amplitude", amplitude_, 4.0);
 		}
 
