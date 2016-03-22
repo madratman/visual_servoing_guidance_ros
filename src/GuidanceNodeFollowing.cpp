@@ -43,7 +43,7 @@ using namespace cv;
 #define IMAGE_SIZE (HEIGHT * WIDTH)
 
 char        	key       = 0;
-e_vbus_index	CAMERA_ID = e_vbus3; // 5 is down/up cam
+e_vbus_index	CAMERA_ID = e_vbus5; // 5 is down/up cam
 DJI_lock        g_lock;
 DJI_event       g_event;
 Mat             g_greyscale_image_left(HEIGHT, WIDTH, CV_8UC1);

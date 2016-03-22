@@ -22,16 +22,17 @@
 #include <opencv/highgui.h>
 
 
-class DJI_servoing
+class DJI_servoing_traj
 {	
 	public:
 		// using namespace CA; // TODO gotta eliminate this
-		DJI_servoing() : it_(node_handle_)
+		DJI_servoing_traj() : it_(node_handle_)
 		{
 			path_pub_    = node_handle_.advertise<ca_common::Trajectory>("/trajectory_gen/path", 100);
-			subPose_     = node_handle_.subscribe("odom", 10, &DJI_servoing::getPose_callback, this);
-			subStart_    = node_handle_.subscribe("/spektrum/status", 1, &DJI_servoing::getStart_callback, this);
-			subStartDji_ = node_handle_.subscribe("/dji_sdk/rc_channels", 1, &DJI_servoing::getStartDji_callback, this);
+			subPose_     = node_handle_.subscribe("odom", 10, &DJI_servoing_traj::getPose_callback, this);
+			subStart_    = node_handle_.subscribe("/spektrum/status", 1, &DJI_servoing_traj::getStart_callback, this);
+			subStartDji_ = node_handle_.subscribe("/dji_sdk/rc_channels", 1, &DJI_servoing_traj::getStartDji_callback, this);
+			it_sub_      = it_.subscribeCamera("/guidance/right/image_raw", 10, &DJI_servoing_traj::image_callback, this);
 
 			node_handle_.param("/trajectory_gen/loopRate", loopRate_, 4.0);
 			node_handle_.param("/trajectory_gen/nodeCount", nodeCount_, 20);

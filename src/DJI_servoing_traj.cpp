@@ -1,4 +1,4 @@
-#include "DJI_servoing.h" 
+#include "DJI_servoing_traj.h" 
 
 using namespace CA;
 using namespace cv;
@@ -22,8 +22,9 @@ int hough_prob_max_gap_bw_points_trackbar = upper_hough_prob_max_gap_bw_points_t
 
 /* Window names */
 const char* hough_prob_window = "Probabilistic Hough";
+const char* threshold_window = "thresholded image";
 
-void DJI_servoing::getPose_callback(const nav_msgs::OdometryConstPtr &msg)
+void DJI_servoing_traj::getPose_callback(const nav_msgs::OdometryConstPtr &msg)
 {
     //ROS_INFO("pose received sq trajectory gen");
     startOdom_ = (*msg);
@@ -35,7 +36,7 @@ void DJI_servoing::getPose_callback(const nav_msgs::OdometryConstPtr &msg)
     gotPose_ = true;
 }
 
-void DJI_servoing::getStart_callback(const spektrum::MikrokopterStatus::ConstPtr &msg)
+void DJI_servoing_traj::getStart_callback(const spektrum::MikrokopterStatus::ConstPtr &msg)
 {
     if(msg->isAutonomous && started_ == false) 
     {
@@ -65,7 +66,7 @@ void DJI_servoing::getStart_callback(const spektrum::MikrokopterStatus::ConstPtr
     }
 }
 
-void DJI_servoing::getStartDji_callback(const dji_sdk::RCChannels::ConstPtr &msg)
+void DJI_servoing_traj::getStartDji_callback(const dji_sdk::RCChannels::ConstPtr &msg)
 {
     if(msg->mode > 4000.0 && started_ == false && !alreadyAuto_) 
     {
@@ -98,7 +99,7 @@ void DJI_servoing::getStartDji_callback(const dji_sdk::RCChannels::ConstPtr &msg
     }
 }
 
-void DJI_servoing::image_callback(const sensor_msgs::ImageConstPtr& image_message, const sensor_msgs::CameraInfoConstPtr& cam_info_msg)
+void DJI_servoing_traj::image_callback(const sensor_msgs::ImageConstPtr& image_message, const sensor_msgs::CameraInfoConstPtr& cam_info_msg)
 {
     // Update the camera model 
     camera_model_.fromCameraInfo(cam_info_msg);
@@ -120,6 +121,7 @@ void DJI_servoing::image_callback(const sensor_msgs::ImageConstPtr& image_messag
 
     // openCV variables
     Mat image_original = cv_ptr->image; 
+    Mat image_thresh;
     Mat image_after_canny; 
     Mat hough_standard_result; 
     Mat hough_prob_result; 
@@ -144,13 +146,29 @@ void DJI_servoing::image_callback(const sensor_msgs::ImageConstPtr& image_messag
     createTrackbar(thresh_label_hough_prob_2, hough_prob_window, &hough_prob_min_no_of_points_trackbar, upper_hough_prob_min_no_of_points_trackbar);
     createTrackbar(thresh_label_hough_prob_3, hough_prob_window, &hough_prob_max_gap_bw_points_trackbar, upper_hough_prob_max_gap_bw_points_trackbar);
 
+    // (do a custom hack acc to scene to filter out crap/clutter in the background) -> threshold the image 
+    int threshold_value = 200;
+    int threshold_type = 4;
+    int const max_value = 255;
+    int const max_type = 4;
+    int const max_BINARY_value = 255;
+    char* trackbar_type = "Type: \n 0: Binary \n 1: Binary Inverted \n 2: Truncate \n 3: To Zero \n 4: To Zero Inverted";
+    char* trackbar_value = "Value";
+
+    createTrackbar(trackbar_type, threshold_window, &threshold_type, max_type);
+    createTrackbar(trackbar_value, threshold_window, &threshold_value, max_value);
+    threshold(image_original, image_thresh, threshold_value, max_BINARY_value,threshold_type);
+    namedWindow(threshold_window, 1);
+    imshow(threshold_window, image_thresh);
+
+    medianBlur(image_original, image_original, 5);
     // Detect the lines
     Canny(image_original, image_after_canny, 50, 200, 3);
     cvtColor(image_after_canny, hough_prob_result, COLOR_GRAY2BGR);
     HoughLinesP(image_after_canny, opencv_lines, 2, 0.05*CV_PI/180, lower_hough_prob_min_no_of_intersections_trackbar + hough_prob_min_no_of_intersections_trackbar, lower_hough_prob_min_no_of_points_trackbar + hough_prob_min_no_of_points_trackbar, lower_hough_prob_max_gap_bw_points_trackbar + hough_prob_max_gap_bw_points_trackbar);
     // 3rd and 4th argument are important in HoughLinesP. It's the resolution of rho and theta. 
 
-    // cout << opencv_lines.size()<<endl;
+    cout << opencv_lines.size()<<endl;
 
     /* View original lines */
     // for(int i = 0; i<opencv_lines.size(); i++)
@@ -170,20 +188,21 @@ void DJI_servoing::image_callback(const sensor_msgs::ImageConstPtr& image_messag
     t.header.seq = 1; 
     CA::State c; // TODO member variable?
 
-    if(firstTime_)
+    if(1)
     {
         sl.clear(); // TODO outside?
 
         // Now the main servoing block method starts
         if(opencv_lines.size() != 0) // Pay attention to the loop condition and the corresponding else block. 
         {  
+            cout << "here";
             // Find the best line
             line_detector_ptr_ = new Line_detector(opencv_lines, image_original_width, image_original_height);
             best_line_opencv = line_detector_ptr_->remove_duplicates();
             Line best_line_struct = line_detector_ptr_->return_best_line();
 
             // Plot the line, endpoints, center of image
-            line(hough_prob_result, Point(best_line_opencv[0], best_line_opencv[1]), Point(best_line_opencv[2], best_line_opencv[3]), Scalar(255,0,0), 1, CV_AA);
+            line(hough_prob_result, Point(best_line_opencv[0], best_line_opencv[1]), Point(best_line_opencv[2], best_line_opencv[3]), Scalar(255,0,0), 2, CV_AA);
             circle(hough_prob_result, Point(best_line_opencv[0],best_line_opencv[1]), 10, Scalar(0,0,255), 1, 8); // plots red circle at first end point
             circle(hough_prob_result, Point(best_line_opencv[2],best_line_opencv[3]), 10, Scalar(0,255,0), 1, 8); // plots green circle at second end point
             circle(hough_prob_result, Point(image_original_width/2, image_original_height/2), 10, Scalar(255,255,255), 1, 8); // plots white circle at center of image

@@ -15,13 +15,24 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   math_utils
   dji_sdk
+  message_generation
 )
 find_package(OpenCV REQUIRED)
+
+add_message_files(
+  FILES
+  rpy.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES PID_controller Line_detector
-  CATKIN_DEPENDS roscpp math_utils
+  CATKIN_DEPENDS std_msgs roscpp math_utils message_runtime
   DEPENDS system_lib
 )
 
@@ -29,7 +40,6 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   include
 )
-
 # Not being used
 # add_library(PID_controller
 #    src/PID_controller.cpp
@@ -43,9 +53,10 @@ add_library(Control_quadcopter
   src/Control_quadcopter.cpp
  )
 
-add_library(DJI_servoing
-  src/DJI_servoing.cpp
+add_library(DJI_servoing_vel
+  src/DJI_servoing_vel.cpp
  )
+add_dependencies(DJI_servoing_vel ${PROJECT_NAME}_generate_messages_cpp)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 
@@ -81,6 +92,7 @@ add_executable(GuidanceNodeTest ${PROJECT_SOURCE_DIR}/src/GuidanceNodeTest.cpp)
 add_executable(GuidanceNodeCalibration ${PROJECT_SOURCE_DIR}/src/GuidanceNodeCalibration.cpp ${PROJECT_SOURCE_DIR}/src/DJI_utility.cpp)
 add_executable(sim_node ${PROJECT_SOURCE_DIR}/src/sim_node.cpp)
 add_executable(real_life_node ${PROJECT_SOURCE_DIR}/src/real_life_node.cpp)
+add_dependencies(real_life_node ${PROJECT_NAME}_generate_messages_cpp)
 # add_executable(PID_node ${PROJECT_SOURCE_DIR}/src/PID_node.cpp)
 
 target_link_libraries(GuidanceNode DJI_guidance usb-1.0 ${catkin_LIBRARIES} ${OpenCV_LIBS})
@@ -88,6 +100,7 @@ target_link_libraries(GuidanceNodeTest ${catkin_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(GuidanceNodeCalibration DJI_guidance usb-1.0 yaml-cpp ${catkin_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(Control_quadcopter ${catkin_LIBRARIES} ${OpenCV_LIBS} )
 target_link_libraries(sim_node ${catkin_LIBRARIES} ${OpenCV_LIBS} Control_quadcopter Line_detector)
-target_link_libraries(DJI_servoing ${catkin_LIBRARIES} ${OpenCV_LIBS} )
-target_link_libraries(real_life_node ${catkin_LIBRARIES} ${OpenCV_LIBS} DJI_servoing Line_detector)
+target_link_libraries(DJI_servoing_vel ${catkin_LIBRARIES} ${OpenCV_LIBS} )
+target_link_libraries(real_life_node ${catkin_LIBRARIES} ${OpenCV_LIBS} DJI_servoing_vel Line_detector)
 # target_link_libraries(PID_node ${catkin_LIBRARIES} ${OpenCV_LIBS})
+

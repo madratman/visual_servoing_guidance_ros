@@ -4,7 +4,7 @@
 #include <opencv/highgui.h>
 #include <math.h>
 #include <sstream>
-
+//
 using namespace cv;
 
 // from castacks::math_utils::numeric_operations
@@ -63,15 +63,17 @@ struct Line
         angle_ = std::floor( atan2( (end_point_.y_ - start_point_.y_ ),  (end_point_.x_ - start_point_.x_) ) * 180/M_PI);
       
         // [0, pi]. We don't care about quadrant  
-        if(angle_ < 0)
-        {
-            angle_ = angle_ + 180; // still don't use atan as it's not robust to division by (close to) zero
-        }
+    //    if(angle_ < 0)
+      //  {
+       //     angle_ = angle_ + 180; // still don't use atan as it's not robust to division by (close to) zero
+       // }
+
+	//angle_ += 90; //hack for rotated Guidance 
 
         intercept_ = (-slope_ * start_point_.x_) + (start_point_.y_); 
         // dist from image center (0,0)
         // dist = | y-mx-c | / sqrt(1+m^2)
-        dist_from_origin_ = abs( safe_division( intercept_, sqrt(1 + pow(slope_,2)) ) );
+        dist_from_origin_ = safe_division( intercept_, sqrt(1 + pow(slope_,2)) );
         strength_ = 1; /* one line detected implies strength is 1 */
     }
 

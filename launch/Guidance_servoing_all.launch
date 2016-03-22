@@ -1,0 +1,5 @@
+<launch>
+  <include file="$(find package_name)/launch/GuidanceNodeCalibration.launch"/>
+  <node name="GuidanceNodeCalibration" pkg="$(find package_name)" type="GuidanceNodeCalibration"/>
+  <node name="real_life_node" pkg="$(find package_name)" type="real_life_node"/>
+</launch>
